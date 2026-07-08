@@ -64,6 +64,9 @@ def evaluate(draft: str, framework: str = "default") -> Evaluation:
     """
     from langchain_core.messages import HumanMessage, SystemMessage
 
+    if not draft or not draft.strip():
+        raise ValueError("draft is empty; nothing to evaluate")
+
     model = build_model().with_structured_output(Evaluation)
     result = model.invoke(
         [
