@@ -1,0 +1,203 @@
+"use client";
+
+import { useState } from "react";
+import { Scorecard } from "@/components/Scorecard";
+import { RevisedPrompt } from "@/components/RevisedPrompt";
+import { SaveDialog, type SavePayload } from "@/components/SaveDialog";
+import { Library } from "@/components/Library";
+import { addEntry } from "@/lib/library";
+import { createClient } from "@/lib/supabase/client";
+import type { EvaluationResult } from "@/lib/schema";
+
+function Wordmark() {
+  return (
+    <span className="flex items-center gap-2.5 text-[15px] font-medium tracking-[-0.01em] text-ink">
+      <span className="size-2 rotate-45 rounded-[1px] bg-ember" />
+      PromptForge
+    </span>
+  );
+}
+
+export default function Home() {
+  const [draft, setDraft] = useState("");
+  const [result, setResult] = useState<EvaluationResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<"evaluate" | "library">("evaluate");
+  const [showSave, setShowSave] = useState(false);
+  const [savedMsg, setSavedMsg] = useState<string | null>(null);
+
+  async function evaluate(input: string) {
+    const text = input.trim();
+    if (!text || loading) return;
+    setLoading(true);
+    setError(null);
+    setSavedMsg(null);
+    try {
+      const res = await fetch("/api/evaluate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ draft: text }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Evaluation failed.");
+      setResult(data as EvaluationResult);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Evaluation failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function refine() {
+    if (!result) return;
+    const revised = result.evaluation.revised_prompt;
+    setDraft(revised);
+    setResult(null);
+    void evaluate(revised);
+  }
+
+  function discard() {
+    setResult(null);
+    setSavedMsg(null);
+  }
+
+  async function save(payload: SavePayload) {
+    if (!result) return;
+    try {
+      await addEntry({
+        name: payload.name,
+        category: payload.category,
+        tags: payload.tags,
+        original_prompt: draft,
+        revised_prompt: result.evaluation.revised_prompt,
+        scorecard: result.evaluation.scorecard,
+        overall_score: result.overall_score,
+        priority_fix: result.evaluation.priority_fix,
+      });
+      setShowSave(false);
+      setSavedMsg(`Saved "${payload.name}" to your library.`);
+    } catch {
+      setError("Could not save to your library. Please try again.");
+    }
+  }
+
+  async function signOut() {
+    await createClient().auth.signOut();
+    location.href = "/login";
+  }
+
+  const idle = view === "evaluate" && !result && !loading;
+
+  return (
+    <div className="min-h-screen">
+      <header className="mx-auto flex w-full max-w-3xl items-center justify-between px-6 py-6">
+        <button onClick={() => setView("evaluate")} className="rounded-md">
+          <Wordmark />
+        </button>
+        <nav className="flex items-center gap-1">
+          <button
+            onClick={() => setView(view === "evaluate" ? "library" : "evaluate")}
+            className="rounded-full px-3.5 py-1.5 text-[13px] text-ink-2 transition-colors hover:bg-surface hover:text-ink"
+          >
+            {view === "evaluate" ? "Library" : "Evaluate"}
+          </button>
+          <button
+            onClick={signOut}
+            className="rounded-full px-3.5 py-1.5 text-[13px] text-ink-3 transition-colors hover:bg-surface hover:text-ink"
+          >
+            Sign out
+          </button>
+        </nav>
+      </header>
+
+      <main className="mx-auto w-full max-w-3xl px-6 pb-28">
+        {view === "library" ? (
+          <Library />
+        ) : (
+          <>
+            {idle && (
+              <h1 className="mb-10 mt-20 text-center text-[28px] font-light tracking-[-0.01em] text-ink">
+                Refine your prompt.
+              </h1>
+            )}
+
+            <div
+              className={`rounded-2xl border border-line bg-surface transition-colors focus-within:border-ink-3 ${
+                idle ? "" : "mt-4"
+              }`}
+            >
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter")
+                    void evaluate(draft);
+                }}
+                placeholder="Paste a rough prompt…"
+                rows={idle ? 6 : 4}
+                className="w-full resize-none bg-transparent px-6 pb-2 pt-5 font-mono text-[13px] leading-[1.7] text-ink outline-none placeholder:text-ink-3"
+              />
+              <div className="flex items-center justify-between px-4 pb-4">
+                <span className="pl-2 text-xs text-ink-3">⌘⏎ to evaluate</span>
+                <button
+                  onClick={() => void evaluate(draft)}
+                  disabled={loading || !draft.trim()}
+                  className="rounded-full bg-ember px-5 py-2 text-[13px] font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {loading ? "Evaluating…" : "Evaluate"}
+                </button>
+              </div>
+            </div>
+
+            {savedMsg && (
+              <p className="mt-4 text-center text-sm text-ink-2">{savedMsg}</p>
+            )}
+
+            {error && (
+              <div className="mt-4 rounded-xl border border-grade-poor/30 bg-grade-poor/10 px-4 py-3 text-sm text-grade-poor">
+                {error}
+              </div>
+            )}
+
+            {result && (
+              <div className="animate-rise mt-8 space-y-4">
+                <Scorecard result={result} />
+                <RevisedPrompt text={result.evaluation.revised_prompt} />
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    onClick={() => setShowSave(true)}
+                    className="rounded-full bg-ember px-5 py-2 text-[13px] font-medium text-white transition hover:brightness-110"
+                  >
+                    Save to library
+                  </button>
+                  <button
+                    onClick={refine}
+                    className="rounded-full border border-line px-4 py-2 text-[13px] text-ink-2 transition-colors hover:border-ink-3 hover:text-ink"
+                  >
+                    Refine again
+                  </button>
+                  <button
+                    onClick={discard}
+                    className="rounded-full px-4 py-2 text-[13px] text-ink-3 transition-colors hover:text-ink"
+                  >
+                    Discard
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </main>
+
+      {showSave && result && (
+        <SaveDialog
+          defaultCategory={result.evaluation.suggested_category}
+          defaultTags={result.evaluation.suggested_tags}
+          onSave={save}
+          onClose={() => setShowSave(false)}
+        />
+      )}
+    </div>
+  );
+}

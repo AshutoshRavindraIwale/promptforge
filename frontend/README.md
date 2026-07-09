@@ -13,12 +13,12 @@ Part of the [`promptforge`](../) repo; mirrors the Python CLI's engine/rubric in
 
 ## Run locally
 ```bash
-cd web
+cd frontend
 npm install                  # if not already done
 cp .env.example .env.local   # then paste your real key
 npm run dev                  # http://localhost:3000
 ```
-Get a key at <https://console.anthropic.com>. `web/.env.local` is git-ignored and read
+Get a key at <https://console.anthropic.com>. `frontend/.env.local` is git-ignored and read
 only on the server — it never reaches the browser.
 
 ## Layout
@@ -37,6 +37,6 @@ components/             Scorecard, RevisedPrompt, SaveDialog, Library
 ```
 
 ## Deploy (Vercel)
-Import the repo → set **Root Directory = `web`** → add the `ANTHROPIC_API_KEY` environment
+Import the repo → set **Root Directory = `frontend`** → add the `ANTHROPIC_API_KEY` environment
 variable → deploy. `npm run build` must pass first (`next build` type-checks; it no longer
 runs lint in Next 16).
