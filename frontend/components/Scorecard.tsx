@@ -5,45 +5,70 @@ import type {
   Scorecard as ScorecardType,
 } from "@/lib/schema";
 
-const BADGE: Record<Score, string> = {
-  Poor: "bg-rose-500/15 text-rose-300 ring-rose-500/30",
-  "Needs Work": "bg-amber-500/15 text-amber-300 ring-amber-500/30",
-  Good: "bg-sky-500/15 text-sky-300 ring-sky-500/30",
-  Excellent: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30",
+const GRADES: Score[] = ["Poor", "Needs Work", "Good", "Excellent"];
+
+const TONE: Record<Score, string> = {
+  Poor: "var(--color-grade-poor)",
+  "Needs Work": "var(--color-grade-fair)",
+  Good: "var(--color-grade-good)",
+  Excellent: "var(--color-grade-excellent)",
 };
 
-export function ScoreBadge({ score, size = "sm" }: { score: Score; size?: "sm" | "lg" }) {
-  const sizing = size === "lg" ? "px-3 py-1 text-sm" : "px-2.5 py-0.5 text-xs";
+/** Four-segment meter: filled to the grade's level, tinted by grade. */
+export function GradeMeter({ score }: { score: Score }) {
+  const level = GRADES.indexOf(score) + 1;
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full font-medium ring-1 ring-inset ${sizing} ${BADGE[score]}`}
-    >
-      <span className="size-1.5 rounded-full bg-current" />
+    <span className="flex items-center gap-1" aria-hidden>
+      {GRADES.map((_, i) => (
+        <span
+          key={i}
+          className="h-[3px] w-5 rounded-full transition-colors"
+          style={{
+            background: i < level ? TONE[score] : "rgba(255,255,255,0.09)",
+          }}
+        />
+      ))}
+    </span>
+  );
+}
+
+export function ScoreBadge({ score }: { score: Score }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs text-ink-2">
+      <span
+        className="size-1.5 rounded-full"
+        style={{ background: TONE[score] }}
+      />
       {score}
     </span>
   );
 }
 
-function DimensionCard({
-  index,
-  name,
-  dim,
-}: {
-  index: number;
-  name: string;
-  dim: Dimension;
-}) {
+function Label({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-xs font-semibold tracking-widest text-slate-400">
-          {index}. {name.toUpperCase()}
-        </h3>
-        <ScoreBadge score={dim.score} />
+    <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink-3">
+      {children}
+    </span>
+  );
+}
+
+function DimensionRow({ name, dim }: { name: string; dim: Dimension }) {
+  return (
+    <div className="px-6 py-5">
+      <div className="flex items-center justify-between gap-4">
+        <Label>{name}</Label>
+        <span className="flex items-center gap-3">
+          <GradeMeter score={dim.score} />
+          <span className="w-24 text-right text-[13px] text-ink">
+            {dim.score}
+          </span>
+        </span>
       </div>
-      <p className="mt-3 text-sm leading-relaxed text-slate-300">{dim.assessment}</p>
-      <p className="mt-2 text-sm leading-relaxed text-slate-400">
-        <span className="font-medium text-violet-300">Fix:</span> {dim.advice}
+      <p className="mt-2.5 text-sm leading-relaxed text-ink-2">
+        {dim.assessment}
+      </p>
+      <p className="mt-1.5 text-sm leading-relaxed text-ink-3">
+        <span className="text-ink-2">Fix</span> — {dim.advice}
       </p>
     </div>
   );
@@ -58,21 +83,24 @@ export function Scorecard({ result }: { result: EvaluationResult }) {
     ["Examples", sc.examples],
   ];
   return (
-    <section className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
-        {dims.map(([name, dim], i) => (
-          <DimensionCard key={name} index={i + 1} name={name} dim={dim} />
+    <section className="overflow-hidden rounded-2xl border border-line bg-surface">
+      <div className="divide-y divide-line">
+        {dims.map(([name, dim]) => (
+          <DimensionRow key={name} name={name} dim={dim} />
         ))}
       </div>
-      <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-xs font-semibold tracking-widest text-slate-400">
-            OVERALL
+      <div className="border-t border-line bg-raised px-6 py-5">
+        <div className="flex items-center justify-between gap-4">
+          <Label>Overall</Label>
+          <span className="flex items-center gap-3">
+            <GradeMeter score={result.overall_score} />
+            <span className="w-24 text-right text-[13px] font-medium text-ink">
+              {result.overall_score}
+            </span>
           </span>
-          <ScoreBadge score={result.overall_score} size="lg" />
         </div>
-        <p className="mt-3 text-sm leading-relaxed text-slate-200">
-          <span className="font-medium text-violet-300">Priority fix:</span>{" "}
+        <p className="mt-2.5 text-sm leading-relaxed text-ink-2">
+          <span className="text-ink">Priority fix</span> —{" "}
           {result.evaluation.priority_fix}
         </p>
       </div>

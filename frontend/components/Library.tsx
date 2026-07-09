@@ -9,7 +9,7 @@ import {
 } from "@/lib/library";
 import { ScoreBadge } from "./Scorecard";
 
-export function Library({ onBack }: { onBack: () => void }) {
+export function Library() {
   const [query, setQuery] = useState("");
   const [entries, setEntries] = useState<LibraryEntry[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -23,7 +23,7 @@ export function Library({ onBack }: { onBack: () => void }) {
     try {
       setEntries(q.trim() ? await searchEntries(q) : await allEntries());
     } catch {
-      setError("Could not load your library.");
+      setError("Could not load your library. Refresh to try again.");
     } finally {
       setLoading(false);
     }
@@ -56,66 +56,68 @@ export function Library({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <button onClick={onBack} className="text-sm text-slate-400 hover:text-white">
-          ← Back
-        </button>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search library…"
-          className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-violet-500"
-        />
-      </div>
+    <div className="mt-4 space-y-4">
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search your library…"
+        className="w-full rounded-full border border-line bg-surface px-5 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-ink-3 focus:border-ink-3"
+      />
 
       {error && (
-        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">
+        <div className="rounded-xl border border-grade-poor/30 bg-grade-poor/10 px-4 py-3 text-sm text-grade-poor">
           {error}
         </div>
       )}
 
       {loading ? (
-        <p className="rounded-xl border border-dashed border-slate-800 p-8 text-center text-sm text-slate-500">
-          Loading…
-        </p>
+        <p className="py-20 text-center text-sm text-ink-3">Loading…</p>
       ) : entries.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-slate-800 p-8 text-center text-sm text-slate-500">
-          {query.trim() ? "No matching prompts." : "No saved prompts yet."}
-        </p>
+        <div className="py-20 text-center">
+          <p className="text-sm text-ink-2">
+            {query.trim() ? "No matching prompts." : "No saved prompts yet."}
+          </p>
+          {!query.trim() && (
+            <p className="mt-1.5 text-sm text-ink-3">
+              Prompts you save after evaluating appear here.
+            </p>
+          )}
+        </div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
           {entries.map((e) => (
-            <li key={e.id} className="rounded-xl border border-slate-800 bg-slate-900/40">
-              <div className="flex items-center gap-3 p-3">
-                <ScoreBadge score={e.overall_score} />
+            <li key={e.id}>
+              <div className="flex items-center gap-4 px-6 py-4">
                 <button
                   onClick={() => setOpenId(openId === e.id ? null : e.id)}
-                  className="min-w-0 flex-1 text-left"
+                  className="min-w-0 flex-1 rounded-md text-left"
                 >
-                  <span className="block truncate text-sm font-medium text-slate-100">
+                  <span className="block truncate text-sm font-medium text-ink">
                     {e.name}
                   </span>
-                  <span className="block truncate text-xs text-slate-500">
+                  <span className="mt-0.5 block truncate text-xs text-ink-3">
                     {e.category}
-                    {e.tags.length ? " · " + e.tags.map((t) => "#" + t).join(" ") : ""}
+                    {e.tags.length ? " · " + e.tags.join(" · ") : ""}
                   </span>
                 </button>
-                <button
-                  onClick={() => copy(e)}
-                  className="rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:text-white"
-                >
-                  {copiedId === e.id ? "Copied" : "Copy"}
-                </button>
-                <button
-                  onClick={() => remove(e.id)}
-                  className="rounded-md border border-slate-700 px-2 py-1 text-xs text-rose-300 hover:border-rose-500/50"
-                >
-                  Delete
-                </button>
+                <ScoreBadge score={e.overall_score} />
+                <span className="flex items-center gap-1">
+                  <button
+                    onClick={() => copy(e)}
+                    className="rounded-full px-2.5 py-1 text-xs text-ink-3 transition-colors hover:bg-raised hover:text-ink"
+                  >
+                    {copiedId === e.id ? "Copied" : "Copy"}
+                  </button>
+                  <button
+                    onClick={() => remove(e.id)}
+                    className="rounded-full px-2.5 py-1 text-xs text-ink-3 transition-colors hover:bg-raised hover:text-grade-poor"
+                  >
+                    Delete
+                  </button>
+                </span>
               </div>
               {openId === e.id && (
-                <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words border-t border-slate-800 p-3 font-mono text-xs text-slate-300">
+                <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words border-t border-line bg-bg/40 px-6 py-4 font-mono text-xs leading-[1.7] text-ink-2">
                   {e.revised_prompt}
                 </pre>
               )}

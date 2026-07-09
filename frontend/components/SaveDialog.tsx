@@ -43,20 +43,21 @@ export function SaveDialog({
   }
 
   const field =
-    "mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-violet-500";
-  const label = "mt-4 block text-xs font-medium text-slate-400";
+    "mt-1.5 w-full rounded-xl border border-line bg-raised px-3.5 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-ink-3 focus:border-ink-3";
+  const label =
+    "mt-4 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-3";
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
-        className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-2xl"
+        className="animate-rise w-full max-w-sm rounded-2xl border border-line bg-surface p-6 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)]"
       >
-        <h2 className="text-lg font-semibold text-white">Save prompt</h2>
+        <h2 className="text-base font-medium text-ink">Save to library</h2>
 
         <label className={label}>Name</label>
         <input
@@ -74,21 +75,25 @@ export function SaveDialog({
           className={field}
         />
 
-        <label className={label}>Tags (comma-separated)</label>
-        <input value={tags} onChange={(e) => setTags(e.target.value)} className={field} />
+        <label className={label}>Tags, comma-separated</label>
+        <input
+          value={tags}
+          onChange={(e) => setTags(e.target.value)}
+          className={field}
+        />
 
-        <div className="mt-5 flex justify-end gap-2">
+        <div className="mt-6 flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-3 py-2 text-sm text-slate-400 hover:text-white"
+            className="rounded-full px-4 py-2 text-[13px] text-ink-3 transition-colors hover:text-ink"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={saving}
-            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-full bg-ember px-5 py-2 text-[13px] font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {saving ? "Saving…" : "Save"}
           </button>
