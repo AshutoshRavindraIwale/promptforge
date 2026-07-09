@@ -104,7 +104,7 @@ export async function evaluate(draft: string): Promise<Evaluation> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new Error(
-      "ANTHROPIC_API_KEY is not set on the server. Add it to web/.env.local (local) or your Vercel project env vars.",
+      "ANTHROPIC_API_KEY is not set on the server. Add it to frontend/.env.local (local) or your Vercel project env vars.",
     );
   }
 

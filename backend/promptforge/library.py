@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-LIBRARY_PATH = Path(__file__).resolve().parent.parent / "promptforge_library.json"
+LIBRARY_PATH = Path(__file__).resolve().parents[2] / "data" / "promptforge_library.json"
 
 
 def _load() -> list[dict]:
@@ -26,6 +26,7 @@ def _load() -> list[dict]:
 
 
 def _save(entries: list[dict]) -> None:
+    LIBRARY_PATH.parent.mkdir(parents=True, exist_ok=True)
     LIBRARY_PATH.write_text(
         json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8"
     )
