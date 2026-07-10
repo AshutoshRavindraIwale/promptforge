@@ -5,7 +5,10 @@ import { Scorecard } from "@/components/Scorecard";
 import { RevisedPrompt } from "@/components/RevisedPrompt";
 import { SaveDialog, type SavePayload } from "@/components/SaveDialog";
 import { Library } from "@/components/Library";
+import { History } from "@/components/History";
+import { EvaluatingState } from "@/components/EvaluatingState";
 import { addEntry } from "@/lib/library";
+import { recordRun, type RunRecord } from "@/lib/history";
 import { createClient } from "@/lib/supabase/client";
 import type { EvaluationResult } from "@/lib/schema";
 
@@ -23,11 +26,17 @@ export default function Home() {
   const [result, setResult] = useState<EvaluationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<"evaluate" | "library">("evaluate");
+  const [view, setView] = useState<"evaluate" | "history" | "library">(
+    "evaluate",
+  );
   const [showSave, setShowSave] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  // Run this result was recorded as (chains "Refine again" into a version history),
+  // and the run it refined from (drives the score-movement chip).
+  const [currentRun, setCurrentRun] = useState<RunRecord | null>(null);
+  const [refinedFrom, setRefinedFrom] = useState<RunRecord | null>(null);
 
-  async function evaluate(input: string) {
+  async function evaluate(input: string, parent: RunRecord | null = null) {
     const text = input.trim();
     if (!text || loading) return;
     setLoading(true);
@@ -42,6 +51,14 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Evaluation failed.");
       setResult(data as EvaluationResult);
+      setRefinedFrom(parent);
+      try {
+        setCurrentRun(await recordRun(text, data as EvaluationResult, parent));
+      } catch {
+        // History is best-effort: the result still renders if the runs table
+        // isn't provisioned yet or the insert fails.
+        setCurrentRun(null);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Evaluation failed.");
     } finally {
@@ -54,12 +71,21 @@ export default function Home() {
     const revised = result.evaluation.revised_prompt;
     setDraft(revised);
     setResult(null);
-    void evaluate(revised);
+    void evaluate(revised, currentRun);
+  }
+
+  function continueFrom(run: RunRecord) {
+    setView("evaluate");
+    setDraft(run.revised_prompt);
+    setResult(null);
+    void evaluate(run.revised_prompt, run);
   }
 
   function discard() {
     setResult(null);
     setSavedMsg(null);
+    setCurrentRun(null);
+    setRefinedFrom(null);
   }
 
   async function save(payload: SavePayload) {
@@ -96,12 +122,23 @@ export default function Home() {
           <Wordmark />
         </button>
         <nav className="flex items-center gap-1">
-          <button
-            onClick={() => setView(view === "evaluate" ? "library" : "evaluate")}
-            className="rounded-full px-3.5 py-1.5 text-[13px] text-ink-2 transition-colors hover:bg-surface hover:text-ink"
-          >
-            {view === "evaluate" ? "Library" : "Evaluate"}
-          </button>
+          {(
+            [
+              ["evaluate", "Evaluate"],
+              ["history", "History"],
+              ["library", "Library"],
+            ] as const
+          ).map(([v, label]) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`rounded-full px-3.5 py-1.5 text-[13px] transition-colors hover:bg-surface hover:text-ink ${
+                view === v ? "text-ink" : "text-ink-2"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
           <button
             onClick={signOut}
             className="rounded-full px-3.5 py-1.5 text-[13px] text-ink-3 transition-colors hover:bg-surface hover:text-ink"
@@ -114,6 +151,8 @@ export default function Home() {
       <main className="mx-auto w-full max-w-3xl px-6 pb-28">
         {view === "library" ? (
           <Library />
+        ) : view === "history" ? (
+          <History onContinue={continueFrom} />
         ) : (
           <>
             {idle && (
@@ -160,8 +199,16 @@ export default function Home() {
               </div>
             )}
 
-            {result && (
+            {loading && <EvaluatingState />}
+
+            {result && !loading && (
               <div className="animate-rise mt-8 space-y-4">
+                {refinedFrom && (
+                  <p className="text-center text-xs text-ink-3">
+                    Refined — {refinedFrom.overall_score} →{" "}
+                    <span className="text-ink-2">{result.overall_score}</span>
+                  </p>
+                )}
                 <Scorecard result={result} />
                 <RevisedPrompt text={result.evaluation.revised_prompt} />
                 <div className="flex items-center gap-2 pt-1">
