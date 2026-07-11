@@ -1,7 +1,8 @@
 // Server-only PromptForge engine: one structured Claude call that scores AND revises a
-// draft. The system prompt below is the verbatim copy of
-// promptforge/prompts/scorer_reviser.txt (the Python CLI's tuned prompt). Output shape is
-// enforced by zodOutputFormat(EvaluationSchema), so there is no manual JSON parsing.
+// draft. The system prompt below is based on promptforge/prompts/scorer_reviser.txt (the
+// Python CLI's tuned prompt), extended with suggested_title (web-only field, not in the
+// Python schema). Output shape is enforced by zodOutputFormat(EvaluationSchema), so there
+// is no manual JSON parsing.
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { EvaluationSchema, type Evaluation } from "./schema";
@@ -93,6 +94,8 @@ Then provide:
   complex; add examples only when the task involves style or judgment. Do NOT pad it —
   skip structure and examples when they would be needless overhead. Output the
   rewritten prompt only; do not describe or summarize the changes inside it.
+- suggested_title: a short descriptive title (3-6 words) naming what the prompt does,
+  e.g. "PRD-writing assistant" or "Customer feedback classifier".
 - suggested_category: a single short category for filing this prompt (e.g. Coding,
   Writing, Research, Analysis, Ops).
 - suggested_tags: 2–5 short lowercase tags useful for later search.

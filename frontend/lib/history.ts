@@ -11,6 +11,8 @@ export interface RunRecord {
   id: string;
   root_run_id: string;
   parent_run_id: string | null;
+  /** Model-generated title; null on rows recorded before migration 0002. */
+  title: string | null;
   draft: string;
   revised_prompt: string;
   scorecard: Scorecard;
@@ -20,6 +22,10 @@ export interface RunRecord {
 }
 
 const COLUMNS =
+  "id, root_run_id, parent_run_id, title, draft, revised_prompt, scorecard, overall_score, priority_fix, created_at";
+
+// Pre-0002 column list (no title), used to fall back when the column doesn't exist yet.
+const LEGACY_COLUMNS =
   "id, root_run_id, parent_run_id, draft, revised_prompt, scorecard, overall_score, priority_fix, created_at";
 
 const supabase = createClient();
@@ -40,32 +46,60 @@ export async function recordRun(
   parent: RunRecord | null,
 ): Promise<RunRecord> {
   const id = crypto.randomUUID();
-  const { data, error } = await supabase
-    .from("runs")
-    .insert({
-      id,
-      root_run_id: parent ? parent.root_run_id : id,
-      parent_run_id: parent?.id ?? null,
-      draft,
-      revised_prompt: result.evaluation.revised_prompt,
-      scorecard: result.evaluation.scorecard,
-      overall_score: result.overall_score,
-      priority_fix: result.evaluation.priority_fix,
-    })
-    .select(COLUMNS)
-    .single();
+  const row = {
+    id,
+    root_run_id: parent ? parent.root_run_id : id,
+    parent_run_id: parent?.id ?? null,
+    title: result.evaluation.suggested_title,
+    draft,
+    revised_prompt: result.evaluation.revised_prompt,
+    scorecard: result.evaluation.scorecard,
+    overall_score: result.overall_score,
+    priority_fix: result.evaluation.priority_fix,
+  };
+  const first = await supabase.from("runs").insert(row).select(COLUMNS).single();
+  let data: unknown = first.data;
+  let error = first.error;
+  if (error?.code === "PGRST204") {
+    // runs.title doesn't exist yet (migration 0002 not applied) — still record the run.
+    const { title, ...withoutTitle } = row;
+    void title;
+    const retry = await supabase
+      .from("runs")
+      .insert(withoutTitle)
+      .select(LEGACY_COLUMNS)
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
   if (error) throw error;
-  return data as unknown as RunRecord;
+  const rec = data as RunRecord;
+  return { ...rec, title: rec.title ?? null };
 }
 
 export async function recentRuns(limit = 200): Promise<RunRecord[]> {
-  const { data, error } = await supabase
+  const first = await supabase
     .from("runs")
     .select(COLUMNS)
     .order("created_at", { ascending: false })
     .limit(limit);
+  let data: unknown[] | null = first.data;
+  let error = first.error;
+  if (error?.code === "42703") {
+    // runs.title doesn't exist yet (migration 0002 not applied).
+    const retry = await supabase
+      .from("runs")
+      .select(LEGACY_COLUMNS)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    data = retry.data;
+    error = retry.error;
+  }
   if (error) throw error;
-  return (data ?? []) as unknown as RunRecord[];
+  return (data ?? []).map((r) => {
+    const rec = r as RunRecord;
+    return { ...rec, title: rec.title ?? null };
+  });
 }
 
 export async function deleteChain(rootRunId: string): Promise<void> {

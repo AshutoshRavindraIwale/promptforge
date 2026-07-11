@@ -239,6 +239,7 @@ export default function Home() {
 
       {showSave && result && (
         <SaveDialog
+          defaultName={result.evaluation.suggested_title}
           defaultCategory={result.evaluation.suggested_category}
           defaultTags={result.evaluation.suggested_tags}
           onSave={save}

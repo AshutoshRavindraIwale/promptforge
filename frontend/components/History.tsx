@@ -37,8 +37,18 @@ function DeltaChip({ prev, curr }: { prev: Score; curr: Score }) {
   );
 }
 
-function firstLine(text: string): string {
-  return text.trim().split("\n")[0];
+// First line of actual prose: XML-ish tags and markdown markers are stripped so a
+// structured prompt titles as "You are a senior product manager…", not "<role>".
+function chainTitle(text: string): string {
+  for (const raw of text.split("\n")) {
+    const line = raw
+      .replace(/<[^>]*>/g, " ")
+      .replace(/^[#>\-*\s]+/, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (line.length >= 8) return line;
+  }
+  return text.trim().replace(/\s+/g, " ").slice(0, 80) || "Untitled prompt";
 }
 
 function Chain({
@@ -72,8 +82,8 @@ function Chain({
           onClick={() => setOpen(!open)}
           className="min-w-0 flex-1 rounded-md text-left"
         >
-          <span className="block truncate font-mono text-[13px] text-ink">
-            {firstLine(runs[0].draft)}
+          <span className="block truncate text-sm font-medium text-ink">
+            {latest.title ?? chainTitle(runs[0].draft)}
           </span>
           <span className="mt-0.5 block text-xs text-ink-3">
             {runs.length === 1 ? "1 version" : `${runs.length} versions`}
