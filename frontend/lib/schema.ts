@@ -25,6 +25,9 @@ export const EvaluationSchema = z.object({
   scorecard: ScorecardSchema,
   priority_fix: z.string().describe("the single most impactful change to make first"),
   revised_prompt: z.string().describe("the full rewritten prompt, ready to use"),
+  suggested_title: z
+    .string()
+    .describe("a short 3-6 word descriptive title naming what the prompt does"),
   suggested_category: z.string().describe("a single short category for filing"),
   suggested_tags: z.array(z.string()).describe("2-5 short lowercase tags for search"),
 });

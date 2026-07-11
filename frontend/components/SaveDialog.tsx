@@ -9,17 +9,19 @@ export interface SavePayload {
 }
 
 export function SaveDialog({
+  defaultName = "",
   defaultCategory,
   defaultTags,
   onSave,
   onClose,
 }: {
+  defaultName?: string;
   defaultCategory: string;
   defaultTags: string[];
   onSave: (payload: SavePayload) => void | Promise<void>;
   onClose: () => void;
 }) {
-  const [name, setName] = useState("");
+  const [name, setName] = useState(defaultName);
   const [category, setCategory] = useState(defaultCategory);
   const [tags, setTags] = useState(defaultTags.join(", "));
   const [saving, setSaving] = useState(false);
