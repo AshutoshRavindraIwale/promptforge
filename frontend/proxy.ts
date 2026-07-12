@@ -43,8 +43,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Skip static assets and the server-side Anthropic route (it has its own key, no auth gate).
+  // Skip static assets and the server-side Anthropic routes (they hold their own key, no
+  // auth gate — same posture for evaluate and test).
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/evaluate|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/evaluate|api/test|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

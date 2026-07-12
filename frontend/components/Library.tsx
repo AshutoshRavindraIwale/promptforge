@@ -7,13 +7,16 @@ import {
   searchEntries,
   type LibraryEntry,
 } from "@/lib/library";
+import { extractPlaceholders } from "@/lib/template";
 import { ScoreBadge } from "./Scorecard";
+import { UseTemplateDialog } from "./UseTemplateDialog";
 
 export function Library() {
   const [query, setQuery] = useState("");
   const [entries, setEntries] = useState<LibraryEntry[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [useEntry, setUseEntry] = useState<LibraryEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -102,6 +105,14 @@ export function Library() {
                 </button>
                 <ScoreBadge score={e.overall_score} />
                 <span className="flex items-center gap-1">
+                  {extractPlaceholders(e.revised_prompt).length > 0 && (
+                    <button
+                      onClick={() => setUseEntry(e)}
+                      className="rounded-full px-2.5 py-1 text-xs text-ember transition-colors hover:bg-raised"
+                    >
+                      Use
+                    </button>
+                  )}
                   <button
                     onClick={() => copy(e)}
                     className="rounded-full px-2.5 py-1 text-xs text-ink-3 transition-colors hover:bg-raised hover:text-ink"
@@ -124,6 +135,10 @@ export function Library() {
             </li>
           ))}
         </ul>
+      )}
+
+      {useEntry && (
+        <UseTemplateDialog entry={useEntry} onClose={() => setUseEntry(null)} />
       )}
     </div>
   );

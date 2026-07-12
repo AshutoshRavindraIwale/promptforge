@@ -7,6 +7,7 @@ import { SaveDialog, type SavePayload } from "@/components/SaveDialog";
 import { Library } from "@/components/Library";
 import { History } from "@/components/History";
 import { EvaluatingState } from "@/components/EvaluatingState";
+import { TestDrawer } from "@/components/TestDrawer";
 import { addEntry } from "@/lib/library";
 import { recordRun, type RunRecord } from "@/lib/history";
 import { createClient } from "@/lib/supabase/client";
@@ -30,6 +31,7 @@ export default function Home() {
     "evaluate",
   );
   const [showSave, setShowSave] = useState(false);
+  const [showTest, setShowTest] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   // Run this result was recorded as (chains "Refine again" into a version history),
   // and the run it refined from (drives the score-movement chip).
@@ -225,6 +227,12 @@ export default function Home() {
                     Refine again
                   </button>
                   <button
+                    onClick={() => setShowTest(true)}
+                    className="rounded-full border border-line px-4 py-2 text-[13px] text-ink-2 transition-colors hover:border-ink-3 hover:text-ink"
+                  >
+                    Test
+                  </button>
+                  <button
                     onClick={discard}
                     className="rounded-full px-4 py-2 text-[13px] text-ink-3 transition-colors hover:text-ink"
                   >
@@ -236,6 +244,14 @@ export default function Home() {
           </>
         )}
       </main>
+
+      {showTest && result && (
+        <TestDrawer
+          original={result.evaluation.prompt_evaluated}
+          revised={result.evaluation.revised_prompt}
+          onClose={() => setShowTest(false)}
+        />
+      )}
 
       {showSave && result && (
         <SaveDialog
