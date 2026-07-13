@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { testPrompt } from "@/lib/testPrompt";
 import { fillTemplate } from "@/lib/template";
+import { Markdown } from "./Markdown";
 
 type PaneState =
   | { status: "idle" }
@@ -56,9 +57,9 @@ function OutputPane({
         ) : state.status === "error" ? (
           <p className="px-4 py-4 text-sm text-grade-poor">{state.message}</p>
         ) : state.status === "done" ? (
-          <pre className="whitespace-pre-wrap break-words px-4 py-4 font-mono text-xs leading-[1.8] text-ink-2">
-            {state.output}
-          </pre>
+          <div className="px-4 py-4">
+            <Markdown text={state.output} />
+          </div>
         ) : (
           <p className="px-4 py-4 text-sm text-ink-3">
             Output appears here after you run the test.
@@ -84,6 +85,7 @@ export function TestDrawer({
   onClose: () => void;
 }) {
   const [input, setInput] = useState("");
+  const [showInput, setShowInput] = useState(false);
   const [left, setLeft] = useState<PaneState>({ status: "idle" });
   const [right, setRight] = useState<PaneState>({ status: "idle" });
 
@@ -140,26 +142,46 @@ export function TestDrawer({
           </button>
         </div>
 
-        <div className="border-b border-line px-6 py-4">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Paste a sample input for the prompts to work on — or leave empty if the prompt stands alone."
-            rows={3}
-            className="w-full resize-none rounded-xl border border-line bg-raised px-4 py-3 font-mono text-xs leading-[1.7] text-ink outline-none transition-colors placeholder:text-ink-3 focus:border-ink-3"
-          />
-          <div className="mt-3 flex justify-end">
+        <div className="border-b border-line px-6 py-3.5">
+          {showInput && (
+            <textarea
+              autoFocus
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Paste a sample input for the prompts to work on…"
+              rows={3}
+              className="mb-3 w-full resize-none rounded-xl border border-line bg-raised px-4 py-3 font-mono text-xs leading-[1.7] text-ink outline-none transition-colors placeholder:text-ink-3 focus:border-ink-3"
+            />
+          )}
+          <div className="flex items-center justify-between gap-3">
             <button
-              onClick={run}
-              disabled={running}
-              className="rounded-full bg-ember px-5 py-2 text-[13px] font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={() => setShowInput(!showInput)}
+              className="rounded-full px-3 py-1.5 text-[13px] text-ink-2 transition-colors hover:bg-raised hover:text-ink"
             >
-              {running
-                ? "Running…"
-                : left.status === "idle"
-                  ? "Run test"
-                  : "Run again"}
+              {showInput
+                ? "Hide sample input"
+                : input.trim()
+                  ? "Edit sample input"
+                  : "+ Add sample input"}
             </button>
+            <span className="flex items-center gap-3">
+              {!showInput && !input.trim() && (
+                <span className="hidden text-xs text-ink-3 sm:block">
+                  No input needed if the prompt stands alone.
+                </span>
+              )}
+              <button
+                onClick={run}
+                disabled={running}
+                className="rounded-full bg-ember px-5 py-2 text-[13px] font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {running
+                  ? "Running…"
+                  : left.status === "idle"
+                    ? "Run test"
+                    : "Run again"}
+              </button>
+            </span>
           </div>
         </div>
 
