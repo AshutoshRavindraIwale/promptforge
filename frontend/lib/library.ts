@@ -50,6 +50,16 @@ export async function deleteEntry(id: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Escape the LIKE metacharacters in a search term so it matches literally. Without this, a
+ * search for "100%" or "snake_case" is a wildcard pattern that matches far more than the text
+ * the user typed. Backslash is Postgres's default LIKE escape character, and it needs escaping
+ * itself so a typed backslash doesn't consume the character after it.
+ */
+function escapeLikeTerm(term: string): string {
+  return term.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
 export async function searchEntries(query: string): Promise<LibraryEntry[]> {
   const q = query.trim();
   if (!q) return allEntries();
@@ -58,7 +68,7 @@ export async function searchEntries(query: string): Promise<LibraryEntry[]> {
   const { data, error } = await supabase
     .from("entries")
     .select(COLUMNS)
-    .ilike("search_text", `%${q}%`)
+    .ilike("search_text", `%${escapeLikeTerm(q)}%`)
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as unknown as LibraryEntry[];

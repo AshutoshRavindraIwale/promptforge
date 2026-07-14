@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rejectIfSignedOut } from "@/lib/auth";
 import { evaluate } from "@/lib/engine";
 import { overallScore } from "@/lib/scoring";
 
@@ -8,6 +9,10 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
+  // This route spends the server-side Anthropic key — never serve an anonymous caller.
+  const signedOut = await rejectIfSignedOut();
+  if (signedOut) return signedOut;
+
   let draft = "";
   try {
     const body = await req.json();

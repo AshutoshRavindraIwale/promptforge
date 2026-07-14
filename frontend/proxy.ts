@@ -43,8 +43,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Skip static assets and the server-side Anthropic routes (they hold their own key, no
-  // auth gate — same posture for evaluate and test).
+  // Skip static assets, and skip /api — not because those routes are public (they spend the
+  // Anthropic key and must not be), but because the redirect above is the wrong answer for a
+  // fetch(). They enforce auth themselves via rejectIfSignedOut() and reply 401 JSON instead.
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|api/evaluate|api/test|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],

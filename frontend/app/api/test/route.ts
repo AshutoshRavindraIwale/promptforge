@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { rejectIfSignedOut } from "@/lib/auth";
 
 // The Anthropic SDK needs the Node.js runtime (not Edge). maxDuration gives the Claude
 // call headroom beyond the default function timeout.
@@ -16,6 +17,11 @@ const MAX_CHARS = 20_000;
 // prompts like "Write a haiku about autumn" need no separate input). Default temperature
 // on purpose — this previews typical output, unlike the temperature-0 scoring call.
 export async function POST(req: Request) {
+  // This route runs an arbitrary prompt on the server-side Anthropic key: without this gate it
+  // is a free Claude proxy for anyone who knows the URL.
+  const signedOut = await rejectIfSignedOut();
+  if (signedOut) return signedOut;
+
   let prompt = "";
   let input = "";
   try {
