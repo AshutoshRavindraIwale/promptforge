@@ -4,6 +4,7 @@ import { useState } from "react";
 import { testPrompt } from "@/lib/testPrompt";
 import { fillTemplate } from "@/lib/template";
 import { Markdown } from "./Markdown";
+import { Modal } from "./Modal";
 
 type PaneState =
   | { status: "idle" }
@@ -116,17 +117,14 @@ export function TestDrawer({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
-      onClick={onClose}
+    <Modal
+      onClose={onClose}
+      labelledBy="test-drawer-title"
+      className="animate-rise flex max-h-[90vh] w-full max-w-5xl flex-col rounded-2xl border border-line bg-surface shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)]"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="animate-rise flex max-h-[90vh] w-full max-w-5xl flex-col rounded-2xl border border-line bg-surface shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)]"
-      >
         <div className="flex items-center justify-between border-b border-line px-6 py-4">
           <div>
-            <h2 className="text-base font-medium text-ink">
+            <h2 id="test-drawer-title" className="text-base font-medium text-ink">
               Does the revision actually help?
             </h2>
             <p className="mt-0.5 text-xs text-ink-3">
@@ -189,7 +187,6 @@ export function TestDrawer({
           <OutputPane label="Original" state={left} />
           <OutputPane label="Revised" state={right} />
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   allEntries,
   deleteEntry,
@@ -19,6 +19,18 @@ export function Library() {
   const [useEntry, setUseEntry] = useState<LibraryEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Which entries have fillable [PLACEHOLDER] fields, computed once per entry list rather than
+  // re-scanning every prompt's full text on every render (search typing, opening a row, …).
+  const hasPlaceholders = useMemo(
+    () =>
+      new Set(
+        entries
+          .filter((e) => extractPlaceholders(e.revised_prompt).length > 0)
+          .map((e) => e.id),
+      ),
+    [entries],
+  );
 
   async function refresh(q: string) {
     setLoading(true);
@@ -105,7 +117,7 @@ export function Library() {
                 </button>
                 <ScoreBadge score={e.overall_score} />
                 <span className="flex items-center gap-1">
-                  {extractPlaceholders(e.revised_prompt).length > 0 && (
+                  {hasPlaceholders.has(e.id) && (
                     <button
                       onClick={() => setUseEntry(e)}
                       className="rounded-full px-2.5 py-1 text-xs text-ember transition-colors hover:bg-raised"

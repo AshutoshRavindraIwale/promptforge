@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { LibraryEntry } from "@/lib/library";
 import { extractPlaceholders, fillTemplate } from "@/lib/template";
+import { Modal } from "./Modal";
 
 /**
  * Fill a saved prompt's [PLACEHOLDER] fields and copy the finished prompt.
@@ -44,16 +45,15 @@ export function UseTemplateDialog({
     "mt-4 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-3";
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
-      onClick={onClose}
+    <Modal
+      onClose={onClose}
+      labelledBy="use-template-title"
+      className="animate-rise flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl border border-line bg-surface shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)]"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="animate-rise flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl border border-line bg-surface shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)]"
-      >
         <div className="border-b border-line px-6 py-4">
-          <h2 className="text-base font-medium text-ink">{entry.name}</h2>
+          <h2 id="use-template-title" className="text-base font-medium text-ink">
+            {entry.name}
+          </h2>
           <p className="mt-0.5 text-xs text-ink-3">
             Fill in the fields — the prompt updates live.
           </p>
@@ -110,7 +110,6 @@ export function UseTemplateDialog({
             </button>
           </span>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

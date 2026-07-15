@@ -6,8 +6,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { EvaluationSchema, type Evaluation } from "./schema";
-
-const MODEL = "claude-sonnet-4-6";
+import { MODEL } from "./model";
 
 export const SYSTEM_PROMPT = `You are PromptForge, an expert prompt engineer. You evaluate a user's draft prompt
 across four dimensions, then rewrite it into a sharper, ready-to-use prompt.

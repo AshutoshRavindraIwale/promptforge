@@ -24,10 +24,6 @@ export interface RunRecord {
 const COLUMNS =
   "id, root_run_id, parent_run_id, title, draft, revised_prompt, scorecard, overall_score, priority_fix, created_at";
 
-// Pre-0002 column list (no title), used to fall back when the column doesn't exist yet.
-const LEGACY_COLUMNS =
-  "id, root_run_id, parent_run_id, draft, revised_prompt, scorecard, overall_score, priority_fix, created_at";
-
 const supabase = createClient();
 
 /**
@@ -57,46 +53,24 @@ export async function recordRun(
     overall_score: result.overall_score,
     priority_fix: result.evaluation.priority_fix,
   };
-  const first = await supabase.from("runs").insert(row).select(COLUMNS).single();
-  let data: unknown = first.data;
-  let error = first.error;
-  if (error?.code === "PGRST204") {
-    // runs.title doesn't exist yet (migration 0002 not applied) — still record the run.
-    const { title, ...withoutTitle } = row;
-    void title;
-    const retry = await supabase
-      .from("runs")
-      .insert(withoutTitle)
-      .select(LEGACY_COLUMNS)
-      .single();
-    data = retry.data;
-    error = retry.error;
-  }
+  const { data, error } = await supabase
+    .from("runs")
+    .insert(row)
+    .select(COLUMNS)
+    .single();
   if (error) throw error;
   const rec = data as RunRecord;
   return { ...rec, title: rec.title ?? null };
 }
 
 export async function recentRuns(limit = 200): Promise<RunRecord[]> {
-  const first = await supabase
+  const { data, error } = await supabase
     .from("runs")
     .select(COLUMNS)
     .order("created_at", { ascending: false })
     .limit(limit);
-  let data: unknown[] | null = first.data;
-  let error = first.error;
-  if (error?.code === "42703") {
-    // runs.title doesn't exist yet (migration 0002 not applied).
-    const retry = await supabase
-      .from("runs")
-      .select(LEGACY_COLUMNS)
-      .order("created_at", { ascending: false })
-      .limit(limit);
-    data = retry.data;
-    error = retry.error;
-  }
   if (error) throw error;
-  return (data ?? []).map((r) => {
+  return ((data ?? []) as unknown[]).map((r) => {
     const rec = r as RunRecord;
     return { ...rec, title: rec.title ?? null };
   });

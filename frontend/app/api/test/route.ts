@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { rejectIfSignedOut } from "@/lib/auth";
+import { denyUnauthorized } from "@/lib/auth";
+import { MODEL } from "@/lib/model";
 
 // The Anthropic SDK needs the Node.js runtime (not Edge). maxDuration gives the Claude
 // call headroom beyond the default function timeout.
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-const MODEL = "claude-sonnet-4-6";
 
 // Bound per-call cost: inputs beyond this are rejected, output is capped at 1024 tokens.
 const MAX_CHARS = 20_000;
@@ -18,9 +17,9 @@ const MAX_CHARS = 20_000;
 // on purpose — this previews typical output, unlike the temperature-0 scoring call.
 export async function POST(req: Request) {
   // This route runs an arbitrary prompt on the server-side Anthropic key: without this gate it
-  // is a free Claude proxy for anyone who knows the URL.
-  const signedOut = await rejectIfSignedOut();
-  if (signedOut) return signedOut;
+  // is a free Claude proxy for any allowed account (and, unchecked, the whole internet).
+  const denied = await denyUnauthorized();
+  if (denied) return denied;
 
   let prompt = "";
   let input = "";
