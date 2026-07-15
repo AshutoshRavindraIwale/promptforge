@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { Modal } from "./Modal";
 
 export interface SavePayload {
   name: string;
@@ -50,20 +51,18 @@ export function SaveDialog({
     "mt-4 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-3";
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
-      onClick={onClose}
+    <Modal
+      onClose={onClose}
+      labelledBy="save-dialog-title"
+      className="animate-rise w-full max-w-sm rounded-2xl border border-line bg-surface p-6 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)]"
     >
-      <form
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={submit}
-        className="animate-rise w-full max-w-sm rounded-2xl border border-line bg-surface p-6 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)]"
-      >
-        <h2 className="text-base font-medium text-ink">Save to library</h2>
+      <form onSubmit={submit}>
+        <h2 id="save-dialog-title" className="text-base font-medium text-ink">
+          Save to library
+        </h2>
 
         <label className={label}>Name</label>
         <input
-          autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Climate explainer"
@@ -101,6 +100,6 @@ export function SaveDialog({
           </button>
         </div>
       </form>
-    </div>
+    </Modal>
   );
 }

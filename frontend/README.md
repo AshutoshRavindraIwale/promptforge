@@ -21,11 +21,15 @@ npm run dev                  # http://localhost:3000
 Get a key at <https://console.anthropic.com>. `frontend/.env.local` is git-ignored and read
 only on the server — it never reaches the browser.
 
+Set **`ALLOWED_EMAILS`** (comma-separated) to the addresses permitted to use `/api/evaluate` and
+`/api/test`. These routes spend the Anthropic key, so they fail closed: an unset value rejects
+every request. Put the email you sign in with here, or the app won't evaluate anything.
+
 ## Layout
 ```
 app/
   page.tsx              main screen (client): input → scorecard → Save/Refine/Discard
-  layout.tsx            dark theme + fonts
+  layout.tsx            root layout + metadata (dark theme; system font stack)
   globals.css           Tailwind v4 + theme tokens
   api/evaluate/route.ts server handler: holds the key, calls the engine
 lib/
@@ -37,6 +41,7 @@ components/             Scorecard, RevisedPrompt, SaveDialog, Library
 ```
 
 ## Deploy (Vercel)
-Import the repo → set **Root Directory = `frontend`** → add the `ANTHROPIC_API_KEY` environment
-variable → deploy. `npm run build` must pass first (`next build` type-checks; it no longer
-runs lint in Next 16).
+Import the repo → set **Root Directory = `frontend`** → add the `ANTHROPIC_API_KEY`,
+`ALLOWED_EMAILS`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_ANON_KEY` environment
+variables → deploy. `npm run build` must pass first (`next build` type-checks; it no longer
+runs lint in Next 16, so run `npm run lint` separately in CI).

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 function GoogleMark() {
@@ -26,19 +27,27 @@ function GoogleMark() {
   );
 }
 
-export default function Login() {
+function LoginForm() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState<"google" | "email" | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Surface a failed callback (e.g. the user backed out of the consent screen). Derived from
+  // the URL during render — no effect — so it can't trip the setState-in-effect lint.
+  const [error, setError] = useState<string | null>(
+    searchParams.get("error")
+      ? "Sign-in didn't complete. Try again."
+      : null,
+  );
   const [showEmail, setShowEmail] = useState(false);
 
-  // Surface a failed callback (e.g. the user backed out of the consent screen).
+  // Strip the consumed ?error param so a refresh doesn't re-show the message. Pure URL
+  // housekeeping — no state is set here.
   useEffect(() => {
-    if (new URLSearchParams(location.search).get("error")) {
-      setError("Sign-in didn't complete. Try again.");
+    if (searchParams.get("error")) {
+      window.history.replaceState(null, "", window.location.pathname);
     }
-  }, []);
+  }, [searchParams]);
 
   async function signInWithGoogle() {
     if (loading) return;
@@ -143,5 +152,14 @@ export default function Login() {
         </div>
       )}
     </main>
+  );
+}
+
+// useSearchParams() requires a Suspense boundary in the App Router.
+export default function Login() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

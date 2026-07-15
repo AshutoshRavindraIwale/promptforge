@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   deleteChain,
   groupIntoChains,
@@ -64,6 +64,13 @@ function Chain({
   const [openVersion, setOpenVersion] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const latest = runs[runs.length - 1];
+  // Look up a run's parent by id so the score-movement chip compares against the version it was
+  // actually refined from, not whatever happens to sit before it in the flattened list — a chain
+  // can branch (refining an older version), and then array-adjacent runs aren't parent/child.
+  const byId = useMemo(
+    () => new Map(runs.map((r) => [r.id, r])),
+    [runs],
+  );
 
   async function copy(run: RunRecord) {
     try {
@@ -103,7 +110,11 @@ function Chain({
       {open && (
         <div className="border-t border-line bg-bg/40">
           <ul className="divide-y divide-line/60">
-            {runs.map((run, i) => (
+            {runs.map((run, i) => {
+              const parent = run.parent_run_id
+                ? byId.get(run.parent_run_id)
+                : undefined;
+              return (
               <li key={run.id}>
                 <div className="flex items-center gap-3 px-6 py-3">
                   <button
@@ -116,9 +127,9 @@ function Chain({
                       v{i + 1}
                     </span>
                     <ScoreBadge score={run.overall_score} />
-                    {i > 0 && (
+                    {parent && (
                       <DeltaChip
-                        prev={runs[i - 1].overall_score}
+                        prev={parent.overall_score}
                         curr={run.overall_score}
                       />
                     )}
@@ -154,7 +165,8 @@ function Chain({
                   </div>
                 )}
               </li>
-            ))}
+              );
+            })}
           </ul>
         </div>
       )}
