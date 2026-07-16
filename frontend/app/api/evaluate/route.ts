@@ -8,6 +8,10 @@ import { overallScore } from "@/lib/scoring";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+// Bound per-call cost: drafts beyond this are rejected before they reach Claude (matches the
+// same guard on /api/test).
+const MAX_CHARS = 20_000;
+
 export async function POST(req: Request) {
   // This route spends the server-side Anthropic key — only allowed, signed-in users.
   const denied = await denyUnauthorized();
@@ -24,6 +28,12 @@ export async function POST(req: Request) {
   if (!draft) {
     return NextResponse.json(
       { error: "Please provide a prompt to evaluate." },
+      { status: 400 },
+    );
+  }
+  if (draft.length > MAX_CHARS) {
+    return NextResponse.json(
+      { error: `Prompt must be under ${MAX_CHARS} characters.` },
       { status: 400 },
     );
   }
