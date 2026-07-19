@@ -9,20 +9,13 @@
 // The allowlist bounds cost: signup is open (any Google account / any email via magic link), so
 // without it any account could run these paid routes. It FAILS CLOSED — if ALLOWED_EMAILS is
 // unset, every caller is rejected rather than silently reverting to "any signed-in user."
+//
+// proxy.ts enforces the same allowlist a step earlier, redirecting a signed-in-but-not-allowed
+// user to /no-access so they never reach the app and hit these 403s. This gate stays as the
+// authoritative check for the paid routes (defense in depth, and the right answer for a fetch()).
 import { NextResponse } from "next/server";
+import { allowlist } from "@/lib/allowlist";
 import { createClient } from "@/lib/supabase/server";
-
-/** Parsed ALLOWED_EMAILS (lowercased), or null when the variable isn't configured at all. */
-function allowlist(): Set<string> | null {
-  const raw = process.env.ALLOWED_EMAILS;
-  if (raw === undefined) return null;
-  return new Set(
-    raw
-      .split(",")
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean),
-  );
-}
 
 /**
  * Null when an allowed, signed-in user made the request; otherwise the error response the route
