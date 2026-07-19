@@ -8,9 +8,9 @@ import { Library } from "@/components/Library";
 import { History } from "@/components/History";
 import { EvaluatingState } from "@/components/EvaluatingState";
 import { TestDrawer } from "@/components/TestDrawer";
+import { SignOutButton } from "@/components/SignOutButton";
 import { addEntry } from "@/lib/library";
 import { recordRun, type RunRecord } from "@/lib/history";
-import { createClient } from "@/lib/supabase/client";
 import type { EvaluationResult } from "@/lib/schema";
 
 function Wordmark() {
@@ -110,11 +110,6 @@ export default function Home() {
     }
   }
 
-  async function signOut() {
-    await createClient().auth.signOut();
-    location.href = "/login";
-  }
-
   const idle = view === "evaluate" && !result && !loading;
 
   return (
@@ -141,12 +136,7 @@ export default function Home() {
               {label}
             </button>
           ))}
-          <button
-            onClick={signOut}
-            className="rounded-full px-3.5 py-1.5 text-[13px] text-ink-3 transition-colors hover:bg-surface hover:text-ink"
-          >
-            Sign out
-          </button>
+          <SignOutButton className="rounded-full px-3.5 py-1.5 text-[13px] text-ink-3 transition-colors hover:bg-surface hover:text-ink" />
         </nav>
       </header>
 
