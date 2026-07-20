@@ -1,28 +1,33 @@
-// Typed contract for an evaluation, mirroring promptforge/schema.py (Python CLI).
-// Uses `zod/v4` so the schema is the exact module @anthropic-ai/sdk's zodOutputFormat
-// expects. `overall_score` is computed server-side (scoring.ts), never from the model.
+// Typed contract for an evaluation. Originally mirrored promptforge/schema.py (Python CLI)
+// with a fixed four-dimension scorecard; the web app now supports multiple prompt frameworks
+// (see lib/frameworks.ts), so the scorecard is a dynamic, ordered list of dimensions whose
+// keys/names come from the selected framework. `overall_score` is computed server-side
+// (scoring.ts), never from the model.
 import * as z from "zod/v4";
 
 export const SCORES = ["Poor", "Needs Work", "Good", "Excellent"] as const;
 export const ScoreSchema = z.enum(SCORES);
 export type Score = (typeof SCORES)[number];
 
-export const DimensionSchema = z.object({
+// What the model returns for a single dimension. The dimension's identity (key + display
+// name) is supplied by the framework definition, not the model, so it lives outside this
+// schema — the model only judges the prompt.
+export const DimensionResultSchema = z.object({
   score: ScoreSchema.describe("Poor / Needs Work / Good / Excellent"),
   assessment: z.string().describe("1-2 sentences explaining the score"),
   advice: z.string().describe("one specific, actionable improvement"),
 });
+export type DimensionResult = z.infer<typeof DimensionResultSchema>;
 
-export const ScorecardSchema = z.object({
-  clarity: DimensionSchema,
-  guidelines: DimensionSchema,
-  structure: DimensionSchema,
-  examples: DimensionSchema,
-});
+// A scored dimension as the rest of the app consumes it: the model's judgement plus the
+// framework-supplied key (stable id) and name (display label).
+export type Dimension = DimensionResult & { key: string; name: string };
+export type Scorecard = Dimension[];
 
-export const EvaluationSchema = z.object({
+// Scalar fields shared by every framework's evaluation schema. The `scorecard` field is
+// built per-framework (buildEvaluationSchema in lib/frameworks.ts) and merged with these.
+export const EVALUATION_SCALAR_FIELDS = {
   prompt_evaluated: z.string().describe("the user's original prompt, verbatim"),
-  scorecard: ScorecardSchema,
   priority_fix: z.string().describe("the single most impactful change to make first"),
   revised_prompt: z.string().describe("the full rewritten prompt, ready to use"),
   suggested_title: z
@@ -30,11 +35,21 @@ export const EvaluationSchema = z.object({
     .describe("a short 3-6 word descriptive title naming what the prompt does"),
   suggested_category: z.string().describe("a single short category for filing"),
   suggested_tags: z.array(z.string()).describe("2-5 short lowercase tags for search"),
-});
+} as const;
 
-export type Dimension = z.infer<typeof DimensionSchema>;
-export type Scorecard = z.infer<typeof ScorecardSchema>;
-export type Evaluation = z.infer<typeof EvaluationSchema>;
+// The full evaluation as consumed by the app. The model produces the scalar fields plus a
+// scorecard keyed by the framework's dimension keys; the engine reshapes that into the
+// ordered `Scorecard` array and attaches which framework produced it.
+export type Evaluation = {
+  prompt_evaluated: string;
+  scorecard: Scorecard;
+  priority_fix: string;
+  revised_prompt: string;
+  suggested_title: string;
+  suggested_category: string;
+  suggested_tags: string[];
+  framework: { id: string; name: string };
+};
 
 export type EvaluationResult = {
   evaluation: Evaluation;
