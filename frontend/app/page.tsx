@@ -9,8 +9,10 @@ import { History } from "@/components/History";
 import { EvaluatingState } from "@/components/EvaluatingState";
 import { TestDrawer } from "@/components/TestDrawer";
 import { SignOutButton } from "@/components/SignOutButton";
+import { FrameworkSelect } from "@/components/FrameworkSelect";
 import { addEntry } from "@/lib/library";
 import { recordRun, type RunRecord } from "@/lib/history";
+import { DEFAULT_FRAMEWORK_ID } from "@/lib/frameworks";
 import type { EvaluationResult } from "@/lib/schema";
 
 function Wordmark() {
@@ -24,6 +26,7 @@ function Wordmark() {
 
 export default function Home() {
   const [draft, setDraft] = useState("");
+  const [framework, setFramework] = useState(DEFAULT_FRAMEWORK_ID);
   const [result, setResult] = useState<EvaluationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +51,7 @@ export default function Home() {
       const res = await fetch("/api/evaluate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draft: text }),
+        body: JSON.stringify({ draft: text, framework }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Evaluation failed.");
@@ -158,6 +161,11 @@ export default function Home() {
                 idle ? "" : "mt-4"
               }`}
             >
+              <FrameworkSelect
+                value={framework}
+                onChange={setFramework}
+                disabled={loading}
+              />
               <textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
@@ -170,13 +178,13 @@ export default function Home() {
                 className="w-full resize-none bg-transparent px-6 pb-2 pt-5 font-mono text-[13px] leading-[1.7] text-ink outline-none placeholder:text-ink-3"
               />
               <div className="flex items-center justify-between px-4 pb-4">
-                <span className="pl-2 text-xs text-ink-3">⌘⏎ to evaluate</span>
+                <span className="pl-2 text-xs text-ink-3">⌘⏎ to forge</span>
                 <button
                   onClick={() => void evaluate(draft)}
                   disabled={loading || !draft.trim()}
                   className="rounded-full bg-ember px-5 py-2 text-[13px] font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {loading ? "Evaluating…" : "Evaluate"}
+                  {loading ? "Forging…" : "Forge it"}
                 </button>
               </div>
             </div>

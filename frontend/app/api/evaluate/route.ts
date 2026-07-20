@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { denyUnauthorized } from "@/lib/auth";
 import { evaluate } from "@/lib/engine";
 import { overallScore } from "@/lib/scoring";
+import { getFramework, requiredKeys } from "@/lib/frameworks";
 
 // The Anthropic SDK needs the Node.js runtime (not Edge). maxDuration gives the Claude
 // call headroom beyond the default function timeout.
@@ -18,12 +19,17 @@ export async function POST(req: Request) {
   if (denied) return denied;
 
   let draft = "";
+  let frameworkId: string | undefined;
   try {
     const body = await req.json();
     draft = String(body?.draft ?? "").trim();
+    if (body?.framework != null) frameworkId = String(body.framework);
   } catch {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
+  // getFramework falls back to the default for unknown ids, so an unrecognized value never
+  // errors — it just evaluates against the default rubric.
+  const framework = getFramework(frameworkId);
 
   if (!draft) {
     return NextResponse.json(
@@ -39,10 +45,10 @@ export async function POST(req: Request) {
   }
 
   try {
-    const evaluation = await evaluate(draft);
+    const evaluation = await evaluate(draft, framework.id);
     return NextResponse.json({
       evaluation,
-      overall_score: overallScore(evaluation.scorecard),
+      overall_score: overallScore(evaluation.scorecard, requiredKeys(framework)),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Evaluation failed.";

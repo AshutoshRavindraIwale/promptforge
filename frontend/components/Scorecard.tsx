@@ -1,9 +1,4 @@
-import type {
-  Dimension,
-  EvaluationResult,
-  Score,
-  Scorecard as ScorecardType,
-} from "@/lib/schema";
+import type { Dimension, EvaluationResult, Score } from "@/lib/schema";
 
 const GRADES: Score[] = ["Poor", "Needs Work", "Good", "Excellent"];
 
@@ -74,19 +69,38 @@ function DimensionRow({ name, dim }: { name: string; dim: Dimension }) {
   );
 }
 
+// Legacy runs (pre-frameworks) stored the scorecard as a fixed {clarity,…} object rather than
+// an ordered list. Normalize both shapes so the card renders either.
+const LEGACY_NAMES: Record<string, string> = {
+  clarity: "Clarity",
+  guidelines: "Guidelines",
+  structure: "Structure",
+  examples: "Examples",
+};
+
+function toDimensionList(scorecard: unknown): Dimension[] {
+  if (Array.isArray(scorecard)) return scorecard as Dimension[];
+  if (scorecard && typeof scorecard === "object") {
+    return Object.entries(scorecard as Record<string, Omit<Dimension, "key" | "name">>).map(
+      ([key, dim]) => ({ key, name: LEGACY_NAMES[key] ?? key, ...dim }),
+    );
+  }
+  return [];
+}
+
 export function Scorecard({ result }: { result: EvaluationResult }) {
-  const sc: ScorecardType = result.evaluation.scorecard;
-  const dims: [string, Dimension][] = [
-    ["Clarity", sc.clarity],
-    ["Guidelines", sc.guidelines],
-    ["Structure", sc.structure],
-    ["Examples", sc.examples],
-  ];
+  const dims: Dimension[] = toDimensionList(result.evaluation.scorecard);
+  const frameworkName = result.evaluation.framework?.name;
   return (
     <section className="overflow-hidden rounded-2xl border border-line bg-surface">
+      {frameworkName && (
+        <div className="border-b border-line px-6 py-3">
+          <Label>{frameworkName}</Label>
+        </div>
+      )}
       <div className="divide-y divide-line">
-        {dims.map(([name, dim]) => (
-          <DimensionRow key={name} name={name} dim={dim} />
+        {dims.map((dim) => (
+          <DimensionRow key={dim.key} name={dim.name} dim={dim} />
         ))}
       </div>
       <div className="border-t border-line bg-raised px-6 py-5">
