@@ -24,6 +24,31 @@ PromptForge ships as two surfaces that share one engine and rubric:
 <p align="center"><img src="docs/screenshot.png" alt="PromptForge web UI" width="760"></p>
 -->
 
+## Example
+
+Input draft:
+
+```
+Write a summary of this article.
+```
+
+Output (abridged):
+
+| Dimension  | Score      | Fix                                                       |
+|------------|------------|-----------------------------------------------------------|
+| Clarity    | Poor       | Name the audience and the target length.                  |
+| Guidelines | Needs Work | State what to include vs. omit (e.g. no opinions).        |
+| Structure  | Good       | Ask for headed sections or bullets.                       |
+| Examples   | Poor       | Show one sample summary in the desired style.             |
+
+**Overall: Needs Work** — a Poor on a required dimension (Clarity) caps the total.
+
+**Priority fix:** Clarity — an unscoped "summary" can't be graded or reused.
+
+**Rewrite:** *"Summarize the article below for a technical audience in 120–150 words.
+Cover the core claim, the evidence, and one limitation. Neutral tone, no opinions.
+Output as 3–4 sentences, no heading."*
+
 ## Features
 
 - **Four-dimension scoring** — a per-dimension assessment and fix, a single priority fix, and a
@@ -73,6 +98,8 @@ Get a key at <https://console.anthropic.com>. The engine uses Claude Sonnet (`MO
 - **[L]ibrary** — list / view / search / copy-to-clipboard / delete saved prompts.
 
 ## Quickstart — Web UI
+
+Requires Node 20+ (Next.js 16).
 
 ```bash
 cd frontend
