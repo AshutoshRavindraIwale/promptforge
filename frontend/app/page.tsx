@@ -10,6 +10,7 @@ import { EvaluatingState } from "@/components/EvaluatingState";
 import { TestDrawer } from "@/components/TestDrawer";
 import { SignOutButton } from "@/components/SignOutButton";
 import { FrameworkSelect } from "@/components/FrameworkSelect";
+import { MicButton } from "@/components/MicButton";
 import { addEntry } from "@/lib/library";
 import { recordRun, type RunRecord } from "@/lib/history";
 import { DEFAULT_FRAMEWORK_ID } from "@/lib/frameworks";
@@ -178,7 +179,14 @@ export default function Home() {
                 className="w-full resize-none bg-transparent px-6 pb-2 pt-5 font-mono text-[13px] leading-[1.7] text-ink outline-none placeholder:text-ink-3"
               />
               <div className="flex items-center justify-between px-4 pb-4">
-                <span className="pl-2 text-xs text-ink-3">⌘⏎ to forge</span>
+                <div className="flex items-center gap-1">
+                  <MicButton
+                    value={draft}
+                    onChange={setDraft}
+                    disabled={loading}
+                  />
+                  <span className="text-xs text-ink-3">⌘⏎ to forge</span>
+                </div>
                 <button
                   onClick={() => void evaluate(draft)}
                   disabled={loading || !draft.trim()}
