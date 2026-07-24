@@ -67,10 +67,12 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Skip static assets, and skip /api — not because those routes are public (they spend the
-  // Anthropic key and must not be), but because the redirect above is the wrong answer for a
-  // fetch(). They enforce auth themselves via rejectIfSignedOut() and reply 401 JSON instead.
+  // Skip static assets, and skip the API routes — not because they're public (they spend the
+  // Anthropic and Groq keys and must not be), but because the redirect above is the wrong answer
+  // for a fetch(). They enforce auth themselves via denyUnauthorized() and reply 401 JSON instead.
+  // Listed individually on purpose: a new /api route left off this list gets a useless redirect
+  // rather than silently losing its gate, which is the safer way to fail.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/evaluate|api/test|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/evaluate|api/test|api/transcribe|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
