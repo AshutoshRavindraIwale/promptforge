@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Scorecard } from "@/components/Scorecard";
 import { RevisedPrompt } from "@/components/RevisedPrompt";
 import { SaveDialog, type SavePayload } from "@/components/SaveDialog";
+import { RefineDialog } from "@/components/RefineDialog";
 import { Library } from "@/components/Library";
 import { History } from "@/components/History";
 import { EvaluatingState } from "@/components/EvaluatingState";
@@ -36,13 +37,18 @@ export default function Home() {
   );
   const [showSave, setShowSave] = useState(false);
   const [showTest, setShowTest] = useState(false);
+  const [showRefine, setShowRefine] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   // Run this result was recorded as (chains "Refine again" into a version history),
   // and the run it refined from (drives the score-movement chip).
   const [currentRun, setCurrentRun] = useState<RunRecord | null>(null);
   const [refinedFrom, setRefinedFrom] = useState<RunRecord | null>(null);
 
-  async function evaluate(input: string, parent: RunRecord | null = null) {
+  async function evaluate(
+    input: string,
+    parent: RunRecord | null = null,
+    focus?: string,
+  ) {
     const text = input.trim();
     if (!text || loading) return;
     setLoading(true);
@@ -52,7 +58,7 @@ export default function Home() {
       const res = await fetch("/api/evaluate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draft: text, framework }),
+        body: JSON.stringify({ draft: text, framework, focus }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Evaluation failed.");
@@ -72,12 +78,13 @@ export default function Home() {
     }
   }
 
-  function refine() {
+  function refine(focus: string) {
     if (!result) return;
     const revised = result.evaluation.revised_prompt;
     setDraft(revised);
     setResult(null);
-    void evaluate(revised, currentRun);
+    setShowRefine(false);
+    void evaluate(revised, currentRun, focus || undefined);
   }
 
   function continueFrom(run: RunRecord) {
@@ -227,7 +234,7 @@ export default function Home() {
                     Save to library
                   </button>
                   <button
-                    onClick={refine}
+                    onClick={() => setShowRefine(true)}
                     className="rounded-full border border-line px-4 py-2 text-[13px] text-ink-2 transition-colors hover:border-ink-3 hover:text-ink"
                   >
                     Refine again
@@ -257,6 +264,10 @@ export default function Home() {
           revised={result.evaluation.revised_prompt}
           onClose={() => setShowTest(false)}
         />
+      )}
+
+      {showRefine && result && (
+        <RefineDialog onRefine={refine} onClose={() => setShowRefine(false)} />
       )}
 
       {showSave && result && (
