@@ -16,6 +16,7 @@ import { MODEL } from "./model";
 export async function evaluate(
   draft: string,
   frameworkId?: string,
+  focus?: string,
 ): Promise<Evaluation> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -34,7 +35,14 @@ export async function evaluate(
     max_tokens: 4096,
     temperature: 0,
     system: buildSystemPrompt(framework),
-    messages: [{ role: "user", content: draft }],
+    messages: [
+      {
+        role: "user",
+        content: focus
+          ? `${draft}\n\n---\nWhen scoring and revising this pass, pay particular attention to: ${focus}`
+          : draft,
+      },
+    ],
     output_config: { format: zodOutputFormat(buildEvaluationSchema(framework)) },
   });
 

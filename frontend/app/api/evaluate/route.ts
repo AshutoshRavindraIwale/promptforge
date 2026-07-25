@@ -12,6 +12,7 @@ export const maxDuration = 60;
 // Bound per-call cost: drafts beyond this are rejected before they reach Claude (matches the
 // same guard on /api/test).
 const MAX_CHARS = 20_000;
+const MAX_FOCUS_CHARS = 2_000;
 
 export async function POST(req: Request) {
   // This route spends the server-side Anthropic key — only allowed, signed-in users.
@@ -20,10 +21,12 @@ export async function POST(req: Request) {
 
   let draft = "";
   let frameworkId: string | undefined;
+  let focus: string | undefined;
   try {
     const body = await req.json();
     draft = String(body?.draft ?? "").trim();
     if (body?.framework != null) frameworkId = String(body.framework);
+    if (body?.focus != null) focus = String(body.focus).trim() || undefined;
   } catch {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
@@ -43,9 +46,15 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
+  if (focus && focus.length > MAX_FOCUS_CHARS) {
+    return NextResponse.json(
+      { error: `Refinement note must be under ${MAX_FOCUS_CHARS} characters.` },
+      { status: 400 },
+    );
+  }
 
   try {
-    const evaluation = await evaluate(draft, framework.id);
+    const evaluation = await evaluate(draft, framework.id, focus);
     return NextResponse.json({
       evaluation,
       overall_score: overallScore(evaluation.scorecard, requiredKeys(framework)),
