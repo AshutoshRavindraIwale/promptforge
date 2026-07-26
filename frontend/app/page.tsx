@@ -6,14 +6,12 @@ import { RevisedPrompt } from "@/components/RevisedPrompt";
 import { SaveDialog, type SavePayload } from "@/components/SaveDialog";
 import { RefineDialog } from "@/components/RefineDialog";
 import { Library } from "@/components/Library";
-import { History } from "@/components/History";
 import { EvaluatingState } from "@/components/EvaluatingState";
 import { TestDrawer } from "@/components/TestDrawer";
 import { SignOutButton } from "@/components/SignOutButton";
 import { FrameworkSelect } from "@/components/FrameworkSelect";
 import { MicButton } from "@/components/MicButton";
 import { addEntry } from "@/lib/library";
-import { recordRun, type RunRecord } from "@/lib/history";
 import { DEFAULT_FRAMEWORK_ID } from "@/lib/frameworks";
 import type { EvaluationResult } from "@/lib/schema";
 
@@ -32,23 +30,13 @@ export default function Home() {
   const [result, setResult] = useState<EvaluationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<"evaluate" | "history" | "library">(
-    "evaluate",
-  );
+  const [view, setView] = useState<"evaluate" | "library">("evaluate");
   const [showSave, setShowSave] = useState(false);
   const [showTest, setShowTest] = useState(false);
   const [showRefine, setShowRefine] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
-  // Run this result was recorded as (chains "Refine again" into a version history),
-  // and the run it refined from (drives the score-movement chip).
-  const [currentRun, setCurrentRun] = useState<RunRecord | null>(null);
-  const [refinedFrom, setRefinedFrom] = useState<RunRecord | null>(null);
 
-  async function evaluate(
-    input: string,
-    parent: RunRecord | null = null,
-    focus?: string,
-  ) {
+  async function evaluate(input: string, focus?: string) {
     const text = input.trim();
     if (!text || loading) return;
     setLoading(true);
@@ -63,14 +51,6 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Evaluation failed.");
       setResult(data as EvaluationResult);
-      setRefinedFrom(parent);
-      try {
-        setCurrentRun(await recordRun(text, data as EvaluationResult, parent));
-      } catch {
-        // History is best-effort: the result still renders if the runs table
-        // isn't provisioned yet or the insert fails.
-        setCurrentRun(null);
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Evaluation failed.");
     } finally {
@@ -84,21 +64,12 @@ export default function Home() {
     setDraft(revised);
     setResult(null);
     setShowRefine(false);
-    void evaluate(revised, currentRun, focus || undefined);
-  }
-
-  function continueFrom(run: RunRecord) {
-    setView("evaluate");
-    setDraft(run.revised_prompt);
-    setResult(null);
-    void evaluate(run.revised_prompt, run);
+    void evaluate(revised, focus || undefined);
   }
 
   function discard() {
     setResult(null);
     setSavedMsg(null);
-    setCurrentRun(null);
-    setRefinedFrom(null);
   }
 
   async function save(payload: SavePayload) {
@@ -133,7 +104,6 @@ export default function Home() {
           {(
             [
               ["evaluate", "Evaluate"],
-              ["history", "History"],
               ["library", "Library"],
             ] as const
           ).map(([v, label]) => (
@@ -154,8 +124,6 @@ export default function Home() {
       <main className="mx-auto w-full max-w-3xl px-6 pb-28">
         {view === "library" ? (
           <Library />
-        ) : view === "history" ? (
-          <History onContinue={continueFrom} />
         ) : (
           <>
             {idle && (
@@ -218,12 +186,6 @@ export default function Home() {
 
             {result && !loading && (
               <div className="animate-rise mt-8 space-y-4">
-                {refinedFrom && (
-                  <p className="text-center text-xs text-ink-3">
-                    Refined — {refinedFrom.overall_score} →{" "}
-                    <span className="text-ink-2">{result.overall_score}</span>
-                  </p>
-                )}
                 <Scorecard result={result} />
                 <RevisedPrompt text={result.evaluation.revised_prompt} />
                 <div className="flex items-center gap-2 pt-1">

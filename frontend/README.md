@@ -14,8 +14,7 @@ rewrite, then test the revision and save it to your library. This is the web fro
   required-dimension cap).
 - **One-call evaluate + rewrite** — a single structured, Zod-validated Claude call returns the
   scorecard and a ready-to-use revised prompt.
-- **Refine chains & history** — re-score a rewrite to build a versioned chain; History shows each
-  version's score movement and a word-level diff of what changed.
+- **Refine loop** — re-score a rewrite, optionally noting what to double-check on the next pass.
 - **Side-by-side test** — run the original and the revised prompt against the same input and
   compare the outputs, not just the scores.
 - **Reusable templates** — saved prompts with `[PLACEHOLDER]` fields can be filled in and copied.
@@ -44,9 +43,8 @@ cp .env.example .env.local     # then fill in the values from the table below
 npm run dev                    # http://localhost:3000
 ```
 
-Then apply the database schema: open your Supabase project's **SQL editor** and run each file in
-[`supabase/migrations/`](supabase/migrations/) in order (`0001_runs.sql`, then
-`0002_run_titles.sql`), along with the `entries` table the library uses.
+Then apply the database schema: open your Supabase project's **SQL editor** and create the
+`entries` table the library uses.
 
 ## Configuration
 
@@ -64,8 +62,8 @@ the browser by design; the rest stay server-side.
 
 A signed-in request to `/api/evaluate` makes one structured Claude call (`lib/engine.ts`) that
 both scores and rewrites the draft. The overall grade is computed deterministically on the server
-(`lib/scoring.ts`) — never taken from the model. The result is recorded to Supabase and rendered
-as a scorecard plus a revised prompt.
+(`lib/scoring.ts`) — never taken from the model. The result is rendered as a scorecard plus a
+revised prompt.
 
 Access is enforced in two places: `proxy.ts` redirects unauthenticated *page* requests to
 `/login`, and the *API* routes call `lib/auth.ts` (`denyUnauthorized`) to check both sign-in and
@@ -90,13 +88,11 @@ lib/
   model.ts                 shared Claude model id
   auth.ts                  sign-in + allowlist gate for the API routes
   library.ts               Supabase CRUD + search for saved prompts
-  history.ts               Supabase CRUD for evaluation runs + refine-chain grouping
-  template.ts, diff.ts     placeholder fill-in / word-level diff
+  template.ts              placeholder fill-in
   supabase/                browser + server Supabase clients
-components/                 Scorecard, RevisedPrompt, SaveDialog, Library, History,
-                           TestDrawer, DiffView, UseTemplateDialog, Markdown, Modal
+components/                 Scorecard, RevisedPrompt, SaveDialog, RefineDialog, Library,
+                           TestDrawer, UseTemplateDialog, Markdown, Modal
 proxy.ts                   Next "proxy" (middleware): session refresh + auth redirect
-supabase/migrations/       SQL to create the runs table (apply in your Supabase project)
 ```
 
 ## Security
@@ -106,8 +102,8 @@ supabase/migrations/       SQL to create the runs table (apply in your Supabase 
 - `/api/evaluate` and `/api/test` require a signed-in **and** allowlisted user, and reject
   anonymous callers with 401. The allowlist fails closed.
 - Per-call input is capped at 20,000 characters to bound token cost.
-- Supabase Row-Level Security scopes every `runs`/`entries` row to `auth.uid()`, so users only
-  ever see their own data.
+- Supabase Row-Level Security scopes every `entries` row to `auth.uid()`, so users only ever see
+  their own data.
 - Conservative security headers (`X-Frame-Options: DENY`, `nosniff`, referrer and permissions
   policy) are set in `next.config.ts`.
 
@@ -131,5 +127,3 @@ must pass first.
 
 - **Signed in, but every evaluation returns 403 "Access isn't configured."** `ALLOWED_EMAILS` is
   unset or doesn't include your address. Add it (comma-separated) and restart the dev server.
-- **History says the runs table is missing.** Run the SQL in `supabase/migrations/` in your
-  Supabase project's SQL editor.
