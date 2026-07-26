@@ -1,6 +1,6 @@
-// Browser-side Supabase client. Used by lib/library.ts and lib/history.ts (data CRUD) and the
+// Browser-side Supabase client. Used by lib/library.ts (data CRUD) and the
 // login UI. Safe to ship to the browser: the anon key is public by design and Row-Level Security
-// (see the entries/runs table policies) is what isolates each user's rows.
+// (see the entries table policies) is what isolates each user's rows.
 //
 // createBrowserClient is memoized into a per-tab singleton so every caller shares one instance
 // (and one auth state) instead of each module spinning up its own.
