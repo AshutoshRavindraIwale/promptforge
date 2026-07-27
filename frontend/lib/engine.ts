@@ -12,17 +12,19 @@ import {
   getFramework,
 } from "./frameworks";
 import { MODEL } from "./model";
+import { MISSING_ANTHROPIC_KEY } from "./keys";
 
 export async function evaluate(
   draft: string,
   frameworkId?: string,
   focus?: string,
+  // A key the user saved in Settings (resolved by the route via lib/keys.ts); falls back
+  // to the server env var so existing deployments keep working unchanged.
+  apiKeyOverride?: string,
 ): Promise<Evaluation> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = apiKeyOverride ?? process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    throw new Error(
-      "ANTHROPIC_API_KEY is not set on the server. Add it to frontend/.env.local (local) or your Vercel project env vars.",
-    );
+    throw new Error(MISSING_ANTHROPIC_KEY);
   }
 
   const framework = getFramework(frameworkId);

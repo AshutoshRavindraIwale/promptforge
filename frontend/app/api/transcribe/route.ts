@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { denyUnauthorized } from "@/lib/auth";
+import { MISSING_GROQ_KEY, resolveGroqKey } from "@/lib/keys";
 
 // Multipart parsing and the outbound upload both need the Node.js runtime (not Edge).
 export const runtime = "nodejs";
@@ -30,15 +31,9 @@ export async function POST(req: Request) {
   const denied = await denyUnauthorized();
   if (denied) return denied;
 
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = resolveGroqKey(req);
   if (!apiKey) {
-    return NextResponse.json(
-      {
-        error:
-          "GROQ_API_KEY is not set on the server. Add it to frontend/.env.local (local) or your Vercel project env vars. Free keys: https://console.groq.com/keys",
-      },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: MISSING_GROQ_KEY }, { status: 500 });
   }
 
   let audio: File | null = null;

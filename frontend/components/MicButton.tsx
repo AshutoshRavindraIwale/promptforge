@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { keyHeaders } from "@/lib/apiKeys";
 
 // Recording stops itself here so a mic left open can't run up an 8 MB upload.
 const MAX_RECORDING_MS = 2 * 60 * 1000;
@@ -234,7 +235,11 @@ export function MicButton({ value, onChange, disabled }: Props) {
     try {
       const body = new FormData();
       body.set("audio", blob);
-      const res = await fetch("/api/transcribe", { method: "POST", body });
+      const res = await fetch("/api/transcribe", {
+        method: "POST",
+        headers: keyHeaders(),
+        body,
+      });
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {

@@ -3,6 +3,7 @@ import { denyUnauthorized } from "@/lib/auth";
 import { evaluate } from "@/lib/engine";
 import { overallScore } from "@/lib/scoring";
 import { getFramework, requiredKeys } from "@/lib/frameworks";
+import { resolveAnthropicKey } from "@/lib/keys";
 
 // The Anthropic SDK needs the Node.js runtime (not Edge). maxDuration gives the Claude
 // call headroom beyond the default function timeout.
@@ -54,7 +55,12 @@ export async function POST(req: Request) {
   }
 
   try {
-    const evaluation = await evaluate(draft, framework.id, focus);
+    const evaluation = await evaluate(
+      draft,
+      framework.id,
+      focus,
+      resolveAnthropicKey(req),
+    );
     return NextResponse.json({
       evaluation,
       overall_score: overallScore(evaluation.scorecard, requiredKeys(framework)),

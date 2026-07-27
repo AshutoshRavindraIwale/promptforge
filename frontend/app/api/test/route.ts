@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { denyUnauthorized } from "@/lib/auth";
 import { MODEL } from "@/lib/model";
+import { MISSING_ANTHROPIC_KEY, resolveAnthropicKey } from "@/lib/keys";
 
 // The Anthropic SDK needs the Node.js runtime (not Edge). maxDuration gives the Claude
 // call headroom beyond the default function timeout.
@@ -44,15 +45,9 @@ export async function POST(req: Request) {
     );
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = resolveAnthropicKey(req);
   if (!apiKey) {
-    return NextResponse.json(
-      {
-        error:
-          "ANTHROPIC_API_KEY is not set on the server. Add it to frontend/.env.local (local) or your Vercel project env vars.",
-      },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: MISSING_ANTHROPIC_KEY }, { status: 500 });
   }
 
   try {
