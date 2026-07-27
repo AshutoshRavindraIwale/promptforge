@@ -1,10 +1,11 @@
 // Client helper for the /api/test route: run one prompt (optionally against a sample
 // input) and return the model's text output.
+import { keyHeaders } from "./apiKeys";
 
 export async function testPrompt(prompt: string, input: string): Promise<string> {
   const res = await fetch("/api/test", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...keyHeaders() },
     body: JSON.stringify({ prompt, input }),
   });
   const data = await res.json();

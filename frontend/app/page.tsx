@@ -11,7 +11,9 @@ import { TestDrawer } from "@/components/TestDrawer";
 import { SignOutButton } from "@/components/SignOutButton";
 import { FrameworkSelect } from "@/components/FrameworkSelect";
 import { MicButton } from "@/components/MicButton";
+import { SettingsDialog } from "@/components/SettingsDialog";
 import { addEntry } from "@/lib/library";
+import { keyHeaders } from "@/lib/apiKeys";
 import { DEFAULT_FRAMEWORK_ID } from "@/lib/frameworks";
 import type { EvaluationResult } from "@/lib/schema";
 
@@ -34,6 +36,7 @@ export default function Home() {
   const [showSave, setShowSave] = useState(false);
   const [showTest, setShowTest] = useState(false);
   const [showRefine, setShowRefine] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
 
   async function evaluate(input: string, focus?: string) {
@@ -45,7 +48,7 @@ export default function Home() {
     try {
       const res = await fetch("/api/evaluate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...keyHeaders() },
         body: JSON.stringify({ draft: text, framework, focus }),
       });
       const data = await res.json();
@@ -117,6 +120,29 @@ export default function Home() {
               {label}
             </button>
           ))}
+          <button
+            onClick={() => setShowSettings(true)}
+            aria-label="API key settings"
+            title="API keys"
+            className="rounded-full p-2 text-ink-3 transition-colors hover:bg-surface hover:text-ink"
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="7.5" cy="15.5" r="4.5" />
+              <path d="M10.85 12.15 19 4" />
+              <path d="M18 5l2 2" />
+              <path d="M15 8l2 2" />
+            </svg>
+          </button>
           <SignOutButton className="rounded-full px-3.5 py-1.5 text-[13px] text-ink-3 transition-colors hover:bg-surface hover:text-ink" />
         </nav>
       </header>
@@ -230,6 +256,10 @@ export default function Home() {
 
       {showRefine && result && (
         <RefineDialog onRefine={refine} onClose={() => setShowRefine(false)} />
+      )}
+
+      {showSettings && (
+        <SettingsDialog onClose={() => setShowSettings(false)} />
       )}
 
       {showSave && result && (
