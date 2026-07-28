@@ -12,6 +12,7 @@ import { SignOutButton } from "@/components/SignOutButton";
 import { FrameworkSelect } from "@/components/FrameworkSelect";
 import { MicButton } from "@/components/MicButton";
 import { SettingsDialog } from "@/components/SettingsDialog";
+import { OpenInProviders } from "@/components/OpenInProviders";
 import { addEntry } from "@/lib/library";
 import { keyHeaders } from "@/lib/apiKeys";
 import { DEFAULT_FRAMEWORK_ID } from "@/lib/frameworks";
@@ -240,6 +241,7 @@ export default function Home() {
                     Discard
                   </button>
                 </div>
+                <OpenInProviders prompt={result.evaluation.revised_prompt} />
               </div>
             )}
           </>
