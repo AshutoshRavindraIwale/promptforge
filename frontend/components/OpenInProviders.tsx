@@ -1,11 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactElement } from "react";
-import {
-  CHAT_PROVIDERS,
-  providerUrl,
-  type ChatProvider,
-} from "@/lib/providers";
+import { CHAT_PROVIDERS, type ChatProvider } from "@/lib/providers";
 
 function ClaudeMark() {
   return (
@@ -39,6 +35,24 @@ function GeminiMark() {
   );
 }
 
+/** Shown on the companion button that opens a desktop-app provider on the web. */
+function BrowserMark() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-3.5"
+      aria-hidden="true"
+    >
+      <path d="M7 17 17 7M8 7h9v9" />
+    </svg>
+  );
+}
+
 const MARKS: Record<ChatProvider["id"], () => ReactElement> = {
   claude: ClaudeMark,
   chatgpt: ChatGPTMark,
@@ -56,30 +70,59 @@ export function OpenInProviders({ prompt }: { prompt: string }) {
     };
   }, []);
 
-  function openIn(provider: ChatProvider) {
-    // window.open must stay synchronous in the click handler — awaiting the
-    // clipboard write first can drop the user gesture and get the tab blocked.
-    window.open(providerUrl(provider, prompt), "_blank", "noopener,noreferrer");
-    navigator.clipboard.writeText(prompt).catch(() => {});
+  // The prompt is never sent for the user — it lands on the clipboard and they
+  // paste it themselves. See the note in lib/providers.ts on why we stopped
+  // prefilling the URL.
+  function handOff(provider: ChatProvider, target: "app" | "web") {
+    if (target === "app" && provider.app) {
+      // Copy before the handoff: the OS raises the desktop app and takes focus,
+      // and a clipboard write from an unfocused document gets rejected.
+      navigator.clipboard.writeText(prompt).catch(() => {});
+      // assign(), not `location.href = …`: the React Compiler lint treats the
+      // property write as mutating an out-of-scope value. Same navigation.
+      window.location.assign(provider.app);
+    } else {
+      // window.open must stay synchronous in the click handler — awaiting the
+      // clipboard write first can drop the user gesture and get the tab blocked.
+      window.open(provider.home, "_blank", "noopener,noreferrer");
+      navigator.clipboard.writeText(prompt).catch(() => {});
+    }
     setOpenedId(provider.id);
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setOpenedId(null), 1500);
+    timer.current = setTimeout(() => setOpenedId(null), 2500);
   }
+
+  const pill =
+    "flex items-center gap-1.5 rounded-full border border-line py-1.5 text-xs text-ink-2 transition-colors hover:border-ink-3 hover:text-ink";
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs text-ink-3">Open in</span>
       {CHAT_PROVIDERS.map((provider) => {
         const Mark = MARKS[provider.id];
+        const copied = openedId === provider.id;
         return (
-          <button
-            key={provider.id}
-            onClick={() => openIn(provider)}
-            className="flex items-center gap-1.5 rounded-full border border-line px-3.5 py-1.5 text-xs text-ink-2 transition-colors hover:border-ink-3 hover:text-ink"
-          >
-            <Mark />
-            {openedId === provider.id ? "Copied ✓" : provider.name}
-          </button>
+          // The app/web pair is one control: either button copies, so the
+          // confirmation belongs on the labelled button whichever was clicked.
+          <span key={provider.id} className="flex items-center gap-1">
+            <button
+              onClick={() => handOff(provider, "app")}
+              className={`${pill} px-3.5`}
+            >
+              <Mark />
+              {copied ? "Copied — paste there ✓" : provider.name}
+            </button>
+            {provider.app && (
+              <button
+                onClick={() => handOff(provider, "web")}
+                title={`Open ${provider.name} in the browser instead`}
+                aria-label={`Open ${provider.name} in the browser instead`}
+                className={`${pill} px-2`}
+              >
+                <BrowserMark />
+              </button>
+            )}
+          </span>
         );
       })}
     </div>
