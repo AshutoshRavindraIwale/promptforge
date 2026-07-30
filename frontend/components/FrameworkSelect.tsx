@@ -89,10 +89,12 @@ export function FrameworkSelect({
         </button>
       </div>
 
+      {/* max-h + y-scroll, not just overflow-hidden: the full list is taller than a laptop
+          viewport, and clipping it silently makes the last frameworks unreachable. */}
       {open && (
         <div
           role="listbox"
-          className="absolute left-4 top-full z-20 mt-1.5 w-[min(23rem,calc(100%-2rem))] overflow-hidden rounded-xl border border-line bg-raised shadow-xl shadow-black/40"
+          className="absolute left-4 top-full z-20 mt-1.5 max-h-[min(26rem,60vh)] w-[min(23rem,calc(100%-2rem))] overflow-y-auto overflow-x-hidden rounded-xl border border-line bg-raised shadow-xl shadow-black/40"
         >
           {FRAMEWORKS.map((f, i) => {
             const active = f.id === selected.id;

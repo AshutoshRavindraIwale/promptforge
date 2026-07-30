@@ -15,7 +15,11 @@ import { SettingsDialog } from "@/components/SettingsDialog";
 import { OpenInProviders } from "@/components/OpenInProviders";
 import { addEntry } from "@/lib/library";
 import { keyHeaders } from "@/lib/apiKeys";
-import { DEFAULT_FRAMEWORK_ID } from "@/lib/frameworks";
+import {
+  DEFAULT_FRAMEWORK_ID,
+  getFramework,
+  isVideoFramework,
+} from "@/lib/frameworks";
 import type { EvaluationResult } from "@/lib/schema";
 
 function Wordmark() {
@@ -46,6 +50,8 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setSavedMsg(null);
+    // A drawer left open from the previous evaluation must not carry over onto the new result.
+    setShowTest(false);
     try {
       const res = await fetch("/api/evaluate", {
         method: "POST",
@@ -97,6 +103,14 @@ export default function Home() {
   }
 
   const idle = view === "evaluate" && !result && !loading;
+
+  // Test runs the prompt through a text model, which is meaningless for a video prompt — it would
+  // return prose describing a hypothetical clip. Keyed off the framework that produced THIS
+  // result rather than the `framework` selector state, which the user can change while a result
+  // is still on screen. A result with no framework recorded falls back to the default (text), so
+  // legacy results keep their Test button.
+  const canTest =
+    !!result && !isVideoFramework(getFramework(result.evaluation.framework?.id));
 
   return (
     <div className="min-h-screen">
@@ -228,12 +242,14 @@ export default function Home() {
                   >
                     Refine again
                   </button>
-                  <button
-                    onClick={() => setShowTest(true)}
-                    className="rounded-full border border-line px-4 py-2 text-[13px] text-ink-2 transition-colors hover:border-ink-3 hover:text-ink"
-                  >
-                    Test
-                  </button>
+                  {canTest && (
+                    <button
+                      onClick={() => setShowTest(true)}
+                      className="rounded-full border border-line px-4 py-2 text-[13px] text-ink-2 transition-colors hover:border-ink-3 hover:text-ink"
+                    >
+                      Test
+                    </button>
+                  )}
                   <button
                     onClick={discard}
                     className="rounded-full px-4 py-2 text-[13px] text-ink-3 transition-colors hover:text-ink"
@@ -248,7 +264,7 @@ export default function Home() {
         )}
       </main>
 
-      {showTest && result && (
+      {showTest && result && canTest && (
         <TestDrawer
           original={result.evaluation.prompt_evaluated}
           revised={result.evaluation.revised_prompt}
