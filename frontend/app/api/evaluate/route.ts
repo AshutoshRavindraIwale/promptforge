@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { denyUnauthorized } from "@/lib/auth";
-import { evaluate } from "@/lib/engine";
-import { overallScore } from "@/lib/scoring";
-import { getFramework, requiredKeys } from "@/lib/frameworks";
+import { streamEvaluate } from "@/lib/engine";
+import { getFramework } from "@/lib/frameworks";
 import { resolveAnthropicKey } from "@/lib/keys";
 
 // The Anthropic SDK needs the Node.js runtime (not Edge). maxDuration gives the Claude
@@ -54,19 +53,41 @@ export async function POST(req: Request) {
     );
   }
 
-  try {
-    const evaluation = await evaluate(
-      draft,
-      framework.id,
-      focus,
-      resolveAnthropicKey(req),
-    );
-    return NextResponse.json({
-      evaluation,
-      overall_score: overallScore(evaluation.scorecard, requiredKeys(framework)),
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Evaluation failed.";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+  // Everything above returns a normal JSON status code. From here the response is a stream, so
+  // the status line is already committed — a failure mid-generation can't become a 500 and is
+  // reported in-band as a final {"type":"error"} line instead.
+  const encoder = new TextEncoder();
+  const body = new ReadableStream({
+    async start(controller) {
+      const send = (chunk: unknown) =>
+        controller.enqueue(encoder.encode(`${JSON.stringify(chunk)}\n`));
+      try {
+        for await (const chunk of streamEvaluate(
+          draft,
+          framework.id,
+          focus,
+          resolveAnthropicKey(req),
+        )) {
+          send(chunk);
+        }
+      } catch (err) {
+        send({
+          type: "error",
+          error: err instanceof Error ? err.message : "Evaluation failed.",
+        });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(body, {
+    headers: {
+      // Newline-delimited JSON: one {"type":"delta"|"done"|"error"} object per line.
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      // Deltas are worthless if something between here and the browser buffers them.
+      "Cache-Control": "no-store, no-transform",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }

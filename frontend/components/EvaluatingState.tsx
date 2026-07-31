@@ -2,17 +2,11 @@
 
 import { useEffect, useState } from "react";
 
-// Staged status lines for the ~10-30s model call. Advances every few seconds
-// and parks on the last one — perceived progress, not a claim of real progress.
-const STEPS = [
-  "Reading your prompt…",
-  "Scoring clarity…",
-  "Scoring guidelines…",
-  "Scoring structure…",
-  "Checking examples…",
-  "Writing the revised prompt…",
-  "Almost there…",
-];
+// Bridges the gap before the first streamed dimension lands — usually a second or two, since
+// the response now renders as it is written. Deliberately framework-agnostic: the old copy
+// named the Anthropic rubric's dimensions ("Scoring clarity…") and lied on every other
+// framework. Real per-dimension progress is the streamed scorecard itself, not this.
+const STEPS = ["Reading your prompt…", "Scoring…", "Almost there…"];
 
 function Row({ wide }: { wide?: boolean }) {
   return (

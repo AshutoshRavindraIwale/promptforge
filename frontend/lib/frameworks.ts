@@ -629,13 +629,14 @@ ${conditionalLine}
 Reward fit, not length. A simple, unambiguous prompt that correctly omits what it doesn't
 need should still score well.
 
-For each dimension, provide:
+Work in this order — each field builds on the ones before it.
+
+First, the scorecard. For each dimension, provide:
 - score: one of Poor / Needs Work / Good / Excellent
 - assessment: 1-2 sentences explaining why you gave that score
 - advice: one specific, actionable improvement
 
-Then provide:
-- prompt_evaluated: repeat the user's original prompt verbatim.
+Then, having assessed every dimension, provide:
 - priority_fix: the single most impactful change the user should make first (1-2 sentences).
 - revised_prompt: the full rewritten prompt that incorporates every improvement, ready to use
   as-is, satisfying the ${framework.name} framework. Do NOT pad it — omit anything the task
@@ -649,15 +650,21 @@ The prompt to evaluate is provided in the next (user) message.`;
 }
 
 /**
- * Build the framework-specific output schema: the shared scalar fields plus a `scorecard`
- * object whose keys are exactly this framework's dimension keys. The model is forced to judge
- * every dimension and nothing else.
+ * Build the framework-specific output schema: a `scorecard` object whose keys are exactly this
+ * framework's dimension keys, plus the shared scalar fields. The model is forced to judge every
+ * dimension and nothing else.
+ *
+ * Key order is load-bearing. The model emits the object in schema order, and the response is
+ * streamed, so schema order IS the order fields appear on screen. `scorecard` comes first so
+ * dimension rows fill in top-down exactly where the UI already puts them — otherwise the
+ * revised prompt renders first and every arriving row shoves it down the page. It also means
+ * the revision is written after the critiques it's meant to address.
  */
 export function buildEvaluationSchema(framework: Framework) {
   const scorecardShape: Record<string, typeof DimensionResultSchema> = {};
   for (const d of framework.dimensions) scorecardShape[d.key] = DimensionResultSchema;
   return z.object({
-    ...EVALUATION_SCALAR_FIELDS,
     scorecard: z.object(scorecardShape),
+    ...EVALUATION_SCALAR_FIELDS,
   });
 }
