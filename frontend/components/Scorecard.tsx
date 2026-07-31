@@ -88,9 +88,25 @@ function toDimensionList(scorecard: unknown): Dimension[] {
   return [];
 }
 
-export function Scorecard({ result }: { result: EvaluationResult }) {
+/**
+ * What the card needs to render. Widened from `EvaluationResult` so the same component can
+ * show a half-streamed evaluation: while the model is still writing, dimension rows arrive one
+ * at a time and `overall_score` (computed server-side once every dimension is in) isn't known
+ * yet, so the Overall footer is simply withheld until it is.
+ */
+type ScorecardView = {
+  evaluation: {
+    scorecard: EvaluationResult["evaluation"]["scorecard"];
+    priority_fix?: string;
+    framework?: { id: string; name: string };
+  };
+  overall_score?: Score;
+};
+
+export function Scorecard({ result }: { result: ScorecardView }) {
   const dims: Dimension[] = toDimensionList(result.evaluation.scorecard);
   const frameworkName = result.evaluation.framework?.name;
+  const overall = result.overall_score;
   return (
     <section className="overflow-hidden rounded-2xl border border-line bg-surface">
       {frameworkName && (
@@ -103,21 +119,23 @@ export function Scorecard({ result }: { result: EvaluationResult }) {
           <DimensionRow key={dim.key} name={dim.name} dim={dim} />
         ))}
       </div>
-      <div className="border-t border-line bg-raised px-6 py-5">
-        <div className="flex items-center justify-between gap-4">
-          <Label>Overall</Label>
-          <span className="flex items-center gap-3">
-            <GradeMeter score={result.overall_score} />
-            <span className="w-24 text-right text-[13px] font-medium text-ink">
-              {result.overall_score}
+      {overall && (
+        <div className="border-t border-line bg-raised px-6 py-5">
+          <div className="flex items-center justify-between gap-4">
+            <Label>Overall</Label>
+            <span className="flex items-center gap-3">
+              <GradeMeter score={overall} />
+              <span className="w-24 text-right text-[13px] font-medium text-ink">
+                {overall}
+              </span>
             </span>
-          </span>
+          </div>
+          <p className="mt-2.5 text-sm leading-relaxed text-ink-2">
+            <span className="text-ink">Priority fix</span> —{" "}
+            {result.evaluation.priority_fix}
+          </p>
         </div>
-        <p className="mt-2.5 text-sm leading-relaxed text-ink-2">
-          <span className="text-ink">Priority fix</span> —{" "}
-          {result.evaluation.priority_fix}
-        </p>
-      </div>
+      )}
     </section>
   );
 }

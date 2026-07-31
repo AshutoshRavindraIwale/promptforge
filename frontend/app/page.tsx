@@ -19,8 +19,43 @@ import {
   DEFAULT_FRAMEWORK_ID,
   getFramework,
   isVideoFramework,
+  type Framework,
 } from "@/lib/frameworks";
-import type { EvaluationResult } from "@/lib/schema";
+import { parsePartialJson } from "@/lib/partialJson";
+import { SCORES, type Dimension, type EvaluationResult, type Score } from "@/lib/schema";
+
+/** The half-written evaluation rendered while the model is still generating. */
+type PartialEvaluation = {
+  scorecard: Dimension[];
+  revised_prompt?: string;
+};
+
+/**
+ * Reshape the JSON the model has written so far into something renderable. Dimensions are
+ * emitted keyed, so they're mapped back into the framework's canonical order; a dimension is
+ * only shown once all three of its fields have arrived, which keeps rows from appearing with
+ * a half-typed score like `"Goo"` that no grade colour matches.
+ */
+function toPartial(json: string, framework: Framework): PartialEvaluation | null {
+  const obj = parsePartialJson(json);
+  if (!obj) return null;
+
+  const keyed = (obj.scorecard ?? {}) as Record<string, Partial<Dimension>>;
+  const scorecard = framework.dimensions
+    .map((d) => ({ key: d.key, name: d.name, ...(keyed[d.key] ?? {}) }))
+    .filter(
+      (d): d is Dimension =>
+        SCORES.includes(d.score as Score) &&
+        typeof d.assessment === "string" &&
+        typeof d.advice === "string",
+    );
+
+  return {
+    scorecard,
+    revised_prompt:
+      typeof obj.revised_prompt === "string" ? obj.revised_prompt : undefined,
+  };
+}
 
 function Wordmark() {
   return (
@@ -35,6 +70,9 @@ export default function Home() {
   const [draft, setDraft] = useState("");
   const [framework, setFramework] = useState(DEFAULT_FRAMEWORK_ID);
   const [result, setResult] = useState<EvaluationResult | null>(null);
+  // The in-flight preview. Cleared when the authoritative result lands, so what the user ends
+  // up acting on is always the validated evaluation, never the best-effort partial parse.
+  const [partial, setPartial] = useState<PartialEvaluation | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<"evaluate" | "library">("evaluate");
@@ -50,6 +88,7 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setSavedMsg(null);
+    setPartial(null);
     // A drawer left open from the previous evaluation must not carry over onto the new result.
     setShowTest(false);
     try {
@@ -58,13 +97,53 @@ export default function Home() {
         headers: { "Content-Type": "application/json", ...keyHeaders() },
         body: JSON.stringify({ draft: text, framework, focus }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Evaluation failed.");
-      setResult(data as EvaluationResult);
+      // Request-level rejections (auth, validation) still answer with a JSON status code;
+      // only once the stream starts does the route report failures in-band.
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Evaluation failed.");
+      }
+
+      const selected = getFramework(framework);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let json = "";
+      let done: EvaluationResult | null = null;
+
+      for (;;) {
+        const { value, done: finished } = await reader.read();
+        if (finished) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // NDJSON: complete lines only — the last fragment stays buffered for the next read.
+        let newline: number;
+        while ((newline = buffer.indexOf("\n")) !== -1) {
+          const line = buffer.slice(0, newline).trim();
+          buffer = buffer.slice(newline + 1);
+          if (!line) continue;
+
+          const msg = JSON.parse(line);
+          if (msg.type === "delta") {
+            json += msg.text;
+            const next = toPartial(json, selected);
+            // A chunk we can't parse yet leaves the last good preview on screen.
+            if (next) setPartial(next);
+          } else if (msg.type === "done") {
+            done = msg.result as EvaluationResult;
+          } else if (msg.type === "error") {
+            throw new Error(msg.error || "Evaluation failed.");
+          }
+        }
+      }
+
+      if (!done) throw new Error("The evaluation ended before it finished. Try again.");
+      setResult(done);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Evaluation failed.");
     } finally {
       setLoading(false);
+      setPartial(null);
     }
   }
 
@@ -223,7 +302,28 @@ export default function Home() {
               </div>
             )}
 
-            {loading && <EvaluatingState />}
+            {/* Skeleton only until the first dimension arrives; after that the real
+                scorecard fills in row by row and the revised prompt types itself out. */}
+            {loading && !partial?.scorecard.length && <EvaluatingState />}
+
+            {loading && !!partial?.scorecard.length && (
+              <div className="animate-rise mt-8 space-y-4" aria-busy="true">
+                <Scorecard
+                  result={{
+                    evaluation: {
+                      scorecard: partial.scorecard,
+                      framework: {
+                        id: getFramework(framework).id,
+                        name: getFramework(framework).name,
+                      },
+                    },
+                  }}
+                />
+                {partial.revised_prompt && (
+                  <RevisedPrompt text={partial.revised_prompt} />
+                )}
+              </div>
+            )}
 
             {result && !loading && (
               <div className="animate-rise mt-8 space-y-4">
