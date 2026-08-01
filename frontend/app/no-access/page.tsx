@@ -52,7 +52,7 @@ export default async function NoAccess() {
         {mailto && (
           <a
             href={mailto}
-            className="w-full rounded-full bg-ember px-5 py-3 text-center text-[13px] font-medium text-white transition hover:brightness-110"
+            className="w-full rounded-full bg-ember px-5 py-3 text-center text-[13px] font-medium text-bg transition hover:brightness-110"
           >
             Request access
           </a>

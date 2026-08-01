@@ -104,7 +104,7 @@ export function UseTemplateDialog({
             </button>
             <button
               onClick={copy}
-              className="rounded-full bg-ember px-5 py-2 text-[13px] font-medium text-white transition hover:brightness-110"
+              className="rounded-full bg-ember px-5 py-2 text-[13px] font-medium text-bg transition hover:brightness-110"
             >
               {copied ? "Copied" : "Copy prompt"}
             </button>

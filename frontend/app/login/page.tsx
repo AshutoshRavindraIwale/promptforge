@@ -132,7 +132,7 @@ function LoginForm() {
               <button
                 type="submit"
                 disabled={loading !== null || !email.trim()}
-                className="w-full rounded-full bg-ember px-5 py-3 text-[13px] font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                className="w-full rounded-full bg-ember px-5 py-3 text-[13px] font-medium text-bg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {loading === "email" ? "Sending…" : "Email me a sign-in link"}
               </button>

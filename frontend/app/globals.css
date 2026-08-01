@@ -13,7 +13,9 @@
   --color-line: #363430;
   --color-ink: #ebe9e4;
   --color-ink-2: #a5a29a;
-  --color-ink-3: #726f67;
+  /* Lightest step that still reads as muted: ≥4.5:1 on bg and surface (WCAG AA at 12px).
+     The previous #726f67 measured 3.4:1 — fine as decoration, illegal as text. */
+  --color-ink-3: #8e8a80;
 
   /* The single accent. Mark, primary action, focus — nowhere else. */
   --color-ember: #cd6f47;

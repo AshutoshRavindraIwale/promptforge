@@ -352,7 +352,7 @@ export function MicButton({ value, onChange, disabled }: Props) {
         aria-label={label}
         aria-pressed={recording}
         title={label}
-        className={`flex size-8 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+        className={`flex size-8 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:size-11 ${
           recording
             ? "bg-ember/15 text-ember"
             : "text-ink-3 hover:bg-raised hover:text-ink"
