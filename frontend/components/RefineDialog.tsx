@@ -59,7 +59,7 @@ export function RefineDialog({
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-full bg-ember px-5 py-2 text-[13px] font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-full bg-ember px-5 py-2 text-[13px] font-medium text-bg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {submitting ? "Refining…" : "Refine"}
           </button>

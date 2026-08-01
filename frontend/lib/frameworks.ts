@@ -582,6 +582,32 @@ export function isVideoFramework(framework: Framework): boolean {
   return framework.kind === "video";
 }
 
+/**
+ * Recover which framework produced a stored scorecard. Library entries don't persist a
+ * framework id (pre-dating frameworks entirely, in the oldest rows), but every framework has
+ * a distinct dimension-key set, so the keys identify it. Accepts both storage shapes: the
+ * ordered array of `{key, ...}` and the legacy `{clarity: {...}, ...}` object. Returns
+ * undefined when nothing matches (e.g. a framework definition changed after the save).
+ */
+export function inferFramework(scorecard: unknown): Framework | undefined {
+  let keys: string[];
+  if (Array.isArray(scorecard)) {
+    keys = scorecard
+      .map((d) => (d as { key?: string }).key)
+      .filter((k): k is string => typeof k === "string");
+  } else if (scorecard && typeof scorecard === "object") {
+    keys = Object.keys(scorecard);
+  } else {
+    return undefined;
+  }
+  const set = new Set(keys);
+  return FRAMEWORKS.find(
+    (f) =>
+      f.dimensions.length === set.size &&
+      f.dimensions.every((d) => set.has(d.key)),
+  );
+}
+
 // ── Prompt + schema builders ─────────────────────────────────────────────────────────────
 
 /** Category examples used when a framework doesn't supply its own. */

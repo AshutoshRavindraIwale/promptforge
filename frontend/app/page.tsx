@@ -76,6 +76,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<"evaluate" | "library">("evaluate");
+  // Once a forge starts, the editor collapses to a one-line summary so the results own the
+  // viewport; "Edit" re-expands it. Reset on every forge so refine loops re-collapse.
+  const [editing, setEditing] = useState(false);
   const [showSave, setShowSave] = useState(false);
   const [showTest, setShowTest] = useState(false);
   const [showRefine, setShowRefine] = useState(false);
@@ -89,6 +92,7 @@ export default function Home() {
     setError(null);
     setSavedMsg(null);
     setPartial(null);
+    setEditing(false);
     // A drawer left open from the previous evaluation must not carry over onto the new result.
     setShowTest(false);
     try {
@@ -193,11 +197,11 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
-      <header className="mx-auto flex w-full max-w-3xl items-center justify-between px-6 py-6">
-        <button onClick={() => setView("evaluate")} className="rounded-md">
+      <header className="mx-auto flex w-full max-w-3xl items-center justify-between gap-2 px-4 py-5 sm:px-6 sm:py-6">
+        <button onClick={() => setView("evaluate")} className="shrink-0 rounded-md">
           <Wordmark />
         </button>
-        <nav className="flex items-center gap-1">
+        <nav className="flex items-center sm:gap-1">
           {(
             [
               ["evaluate", "Evaluate"],
@@ -207,7 +211,7 @@ export default function Home() {
             <button
               key={v}
               onClick={() => setView(v)}
-              className={`rounded-full px-3.5 py-1.5 text-[13px] transition-colors hover:bg-surface hover:text-ink ${
+              className={`whitespace-nowrap rounded-full px-2.5 py-1.5 text-[13px] transition-colors hover:bg-surface hover:text-ink sm:px-3.5 ${
                 view === v ? "text-ink" : "text-ink-2"
               }`}
             >
@@ -218,7 +222,7 @@ export default function Home() {
             onClick={() => setShowSettings(true)}
             aria-label="API key settings"
             title="API keys"
-            className="rounded-full p-2 text-ink-3 transition-colors hover:bg-surface hover:text-ink"
+            className="inline-flex items-center justify-center rounded-full p-2 text-ink-3 transition-colors hover:bg-surface hover:text-ink pointer-coarse:size-11 pointer-coarse:p-0"
           >
             <svg
               width="15"
@@ -237,11 +241,11 @@ export default function Home() {
               <path d="M15 8l2 2" />
             </svg>
           </button>
-          <SignOutButton className="rounded-full px-3.5 py-1.5 text-[13px] text-ink-3 transition-colors hover:bg-surface hover:text-ink" />
+          <SignOutButton className="whitespace-nowrap rounded-full px-2.5 py-1.5 text-[13px] text-ink-3 transition-colors hover:bg-surface hover:text-ink sm:px-3.5" />
         </nav>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl px-6 pb-28">
+      <main className="mx-auto w-full max-w-3xl px-4 pb-28 sm:px-6">
         {view === "library" ? (
           <Library />
         ) : (
@@ -252,45 +256,76 @@ export default function Home() {
               </h1>
             )}
 
-            <div
-              className={`rounded-2xl border border-line bg-surface transition-colors focus-within:border-ink-3 ${
-                idle ? "" : "mt-4"
-              }`}
-            >
-              <FrameworkSelect
-                value={framework}
-                onChange={setFramework}
-                disabled={loading}
-              />
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter")
-                    void evaluate(draft);
-                }}
-                placeholder="Paste a rough prompt…"
-                rows={idle ? 6 : 4}
-                className="w-full resize-none bg-transparent px-6 pb-2 pt-5 font-mono text-[13px] leading-[1.7] text-ink outline-none placeholder:text-ink-3"
-              />
-              <div className="flex items-center justify-between px-4 pb-4">
-                <div className="flex items-center gap-1">
-                  <MicButton
-                    value={draft}
-                    onChange={setDraft}
-                    disabled={loading}
-                  />
-                  <span className="text-xs text-ink-3">⌘⏎ to forge</span>
-                </div>
-                <button
-                  onClick={() => void evaluate(draft)}
-                  disabled={loading || !draft.trim()}
-                  className="rounded-full bg-ember px-5 py-2 text-[13px] font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {loading ? "Forging…" : "Forge it"}
-                </button>
+            {/* Once a forge is running or a result is on screen, the editor gives up the top of
+                the viewport: it collapses to a one-line summary so the scorecard — the thing the
+                user is actually reading now — starts above the fold. */}
+            {!idle && !editing ? (
+              <div className="mt-4 flex items-center gap-3 rounded-2xl border border-line bg-surface py-2.5 pl-5 pr-2.5">
+                <span className="hidden shrink-0 text-[11px] font-medium uppercase tracking-[0.14em] text-ink-3 sm:block">
+                  {getFramework(framework).name}
+                </span>
+                <span className="min-w-0 flex-1 truncate font-mono text-xs leading-none text-ink-2">
+                  {draft.trim()}
+                </span>
+                {loading ? (
+                  <span className="flex shrink-0 items-center gap-2 px-2.5 py-1.5 text-xs text-ink-3">
+                    <span className="size-1.5 animate-pulse rotate-45 rounded-[1px] bg-ember" />
+                    Forging…
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => setEditing(true)}
+                    className="shrink-0 rounded-full border border-line px-3.5 py-1.5 text-xs text-ink-2 transition-colors hover:border-ink-3 hover:text-ink"
+                  >
+                    Edit
+                  </button>
+                )}
               </div>
-            </div>
+            ) : (
+              <div
+                className={`rounded-2xl border border-line bg-surface transition-colors focus-within:border-ink-3 ${
+                  idle ? "" : "mt-4"
+                }`}
+              >
+                <FrameworkSelect
+                  value={framework}
+                  onChange={setFramework}
+                  disabled={loading}
+                />
+                <textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter")
+                      void evaluate(draft);
+                  }}
+                  placeholder="Paste a rough prompt…"
+                  rows={idle ? 6 : 4}
+                  autoFocus={editing}
+                  className="w-full resize-none bg-transparent px-6 pb-2 pt-5 font-mono text-[13px] leading-[1.7] text-ink outline-none placeholder:text-ink-3"
+                />
+                <div className="flex items-center justify-between px-4 pb-4">
+                  <div className="flex items-center gap-1">
+                    <MicButton
+                      value={draft}
+                      onChange={setDraft}
+                      disabled={loading}
+                    />
+                    {/* Keyboard hint means nothing on a touch screen. */}
+                    <span className="hidden text-xs text-ink-3 pointer-fine:inline">
+                      ⌘⏎ to forge
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => void evaluate(draft)}
+                    disabled={loading || !draft.trim()}
+                    className="rounded-full bg-ember px-5 py-2 text-[13px] font-medium text-bg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {loading ? "Forging…" : "Forge it"}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {savedMsg && (
               <p className="mt-4 text-center text-sm text-ink-2">{savedMsg}</p>
@@ -329,10 +364,13 @@ export default function Home() {
               <div className="animate-rise mt-8 space-y-4">
                 <Scorecard result={result} />
                 <RevisedPrompt text={result.evaluation.revised_prompt} />
-                <div className="flex items-center gap-2 pt-1">
+                {/* Sticky within the results flow: pinned to the viewport bottom while the
+                    3+ screens of scorecard scroll by, settling into place at the end. Saves
+                    the trip to the bottom of the page to act on a result. */}
+                <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-2 border-t border-line/60 bg-bg/90 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
                   <button
                     onClick={() => setShowSave(true)}
-                    className="rounded-full bg-ember px-5 py-2 text-[13px] font-medium text-white transition hover:brightness-110"
+                    className="rounded-full bg-ember px-5 py-2 text-[13px] font-medium text-bg transition hover:brightness-110"
                   >
                     Save to library
                   </button>

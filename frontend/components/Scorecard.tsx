@@ -109,33 +109,46 @@ export function Scorecard({ result }: { result: ScorecardView }) {
   const overall = result.overall_score;
   return (
     <section className="overflow-hidden rounded-2xl border border-line bg-surface">
-      {frameworkName && (
-        <div className="border-b border-line px-6 py-3">
-          <Label>{frameworkName}</Label>
+      {/* Verdict first: the reader's question is "how bad is it?", so the overall grade and
+          priority fix lead the card instead of trailing 4-7 dimension rows. The overall score
+          streams in last (computed server-side once every dimension is in), so until it lands
+          this header doubles as the streaming progress indicator — and its fill-in is the
+          visible finish line. */}
+      <div className="border-b border-line bg-raised px-6 py-5">
+        <div className="flex items-center justify-between gap-4">
+          <Label>{frameworkName ?? "Evaluation"}</Label>
+          {overall ? (
+            <GradeMeter score={overall} />
+          ) : (
+            <span className="skeleton h-[3px] w-[92px]" aria-hidden />
+          )}
         </div>
-      )}
+        {overall ? (
+          <p className="mt-2 flex items-center gap-2.5 text-[20px] font-medium tracking-[-0.01em] text-ink">
+            <span
+              className="size-2 rounded-full"
+              style={{ background: TONE[overall] }}
+              aria-hidden
+            />
+            {overall}
+          </p>
+        ) : (
+          <p className="mt-2 text-[20px] font-medium tracking-[-0.01em] text-ink-3">
+            Scoring…
+          </p>
+        )}
+        {overall && result.evaluation.priority_fix && (
+          <p className="mt-2 text-sm leading-relaxed text-ink-2">
+            <span className="text-ink">Priority fix</span> —{" "}
+            {result.evaluation.priority_fix}
+          </p>
+        )}
+      </div>
       <div className="divide-y divide-line">
         {dims.map((dim) => (
           <DimensionRow key={dim.key} name={dim.name} dim={dim} />
         ))}
       </div>
-      {overall && (
-        <div className="border-t border-line bg-raised px-6 py-5">
-          <div className="flex items-center justify-between gap-4">
-            <Label>Overall</Label>
-            <span className="flex items-center gap-3">
-              <GradeMeter score={overall} />
-              <span className="w-24 text-right text-[13px] font-medium text-ink">
-                {overall}
-              </span>
-            </span>
-          </div>
-          <p className="mt-2.5 text-sm leading-relaxed text-ink-2">
-            <span className="text-ink">Priority fix</span> —{" "}
-            {result.evaluation.priority_fix}
-          </p>
-        </div>
-      )}
     </section>
   );
 }
