@@ -15,13 +15,16 @@
 // authoritative check for the paid routes (defense in depth, and the right answer for a fetch()).
 import { NextResponse } from "next/server";
 import { allowlist } from "@/lib/allowlist";
+import { rateLimited } from "@/lib/rateLimit";
 import { createClient } from "@/lib/supabase/server";
 
 /**
  * Null when an allowed, signed-in user made the request; otherwise the error response the route
- * should return (401 not signed in, 403 not permitted / allowlist not configured).
+ * should return (401 not signed in, 403 not permitted / allowlist not configured, 429 over the
+ * per-user rate limit). Pass the request so the limit is scoped per route — an evaluate burst
+ * shouldn't lock the same user out of dictation.
  */
-export async function denyUnauthorized(): Promise<NextResponse | null> {
+export async function denyUnauthorized(req?: Request): Promise<NextResponse | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -50,6 +53,15 @@ export async function denyUnauthorized(): Promise<NextResponse | null> {
     return NextResponse.json(
       { error: "Your account isn't allowed to use this app." },
       { status: 403 },
+    );
+  }
+
+  // The allowlist bounds who can spend; this bounds how fast. Keyed by user id, not email or
+  // IP, so the cap follows the account across devices and can't be dodged by rotating IPs.
+  if (req && rateLimited(`${user.id}:${new URL(req.url).pathname}`)) {
+    return NextResponse.json(
+      { error: "Too many requests. Wait a minute and try again." },
+      { status: 429 },
     );
   }
 

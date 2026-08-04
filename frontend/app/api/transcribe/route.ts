@@ -28,7 +28,7 @@ const VOCABULARY_HINT =
 export async function POST(req: Request) {
   // Same gate as the other paid routes: unguarded, this is a free transcription proxy for
   // anyone who can reach it.
-  const denied = await denyUnauthorized();
+  const denied = await denyUnauthorized(req);
   if (denied) return denied;
 
   const apiKey = resolveGroqKey(req);

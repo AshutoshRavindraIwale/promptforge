@@ -1,17 +1,43 @@
 // Next 16 renamed Middleware -> Proxy: this file must export `proxy` (not `middleware`) and
 // must NOT set `export const runtime` (proxy already runs on Node; setting it throws).
-// Three jobs: (1) refresh the rotating Supabase auth cookie on every request, (2) redirect
-// unauthenticated users to /login, and (3) redirect signed-in-but-not-allowlisted users to
+// Four jobs: (1) refresh the rotating Supabase auth cookie on every request, (2) redirect
+// unauthenticated users to /login, (3) redirect signed-in-but-not-allowlisted users to
 // /no-access — so they see a clear "not approved yet" state instead of reaching the app and
-// only discovering the block when an evaluation fails 403. getUser() (not getSession)
-// revalidates the token against the auth server.
+// only discovering the block when an evaluation fails 403 — and (4) attach a per-request
+// nonce-based Content-Security-Policy. getUser() (not getSession) revalidates the token
+// against the auth server.
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isAllowed } from "@/lib/allowlist";
 
-export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request });
+// Nonce-based Content-Security-Policy (job 4 below). Built here rather than next.config.ts
+// because the nonce must be fresh per request: Next reads it from this request header and
+// stamps it onto every framework/inline script it renders, so only markup we generated runs.
+// Notes on the softer directives:
+//  - style-src keeps 'unsafe-inline': components use React style={{}} attributes, which
+//    style-src governs; style injection is a far weaker vector than script and script-src
+//    stays nonce-strict.
+//  - dev adds 'unsafe-eval' (React error overlay) and ws: (HMR); production drops both.
+function buildCsp(nonce: string, supabaseOrigin: string): string {
+  const isDev = process.env.NODE_ENV === "development";
+  return [
+    `default-src 'self'`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
+    `style-src 'self' 'unsafe-inline'`,
+    `img-src 'self' blob: data:`,
+    `font-src 'self'`,
+    // supabase-js calls auth + PostgREST from the browser; no realtime/storage, so no wss.
+    `connect-src 'self' ${supabaseOrigin}${isDev ? " ws:" : ""}`,
+    `media-src 'self' blob:`,
+    `object-src 'none'`,
+    `base-uri 'self'`,
+    `form-action 'self'`,
+    `frame-ancestors 'none'`,
+    ...(isDev ? [] : [`upgrade-insecure-requests`]),
+  ].join("; ");
+}
 
+export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
@@ -19,6 +45,15 @@ export async function proxy(request: NextRequest) {
       "Missing NEXT_PUBLIC_SUPABASE_URL and/or NEXT_PUBLIC_SUPABASE_ANON_KEY. Add them to frontend/.env.local (local) or your deployment's environment variables.",
     );
   }
+
+  // Set on the REQUEST headers before any NextResponse.next({ request }) is created (including
+  // the ones the cookie handler below re-creates) so the render Next does downstream sees them.
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const csp = buildCsp(nonce, new URL(url).origin);
+  request.headers.set("x-nonce", nonce);
+  request.headers.set("Content-Security-Policy", csp);
+
+  let response = NextResponse.next({ request });
 
   const supabase = createServerClient(url, anonKey, {
     cookies: {
@@ -63,6 +98,9 @@ export async function proxy(request: NextRequest) {
   }
 
   // Must return THIS response object so the refreshed session cookies are sent back.
+  // The browser enforces the CSP from the response header; the copy on the request headers
+  // above is what told Next which nonce to stamp onto its scripts.
+  response.headers.set("Content-Security-Policy", csp);
   return response;
 }
 
