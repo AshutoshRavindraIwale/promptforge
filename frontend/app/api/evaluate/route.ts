@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { toClientError } from "@/lib/apiError";
 import { denyUnauthorized } from "@/lib/auth";
 import { streamEvaluate } from "@/lib/engine";
 import { getFramework } from "@/lib/frameworks";
@@ -16,7 +17,7 @@ const MAX_FOCUS_CHARS = 2_000;
 
 export async function POST(req: Request) {
   // This route spends the server-side Anthropic key — only allowed, signed-in users.
-  const denied = await denyUnauthorized();
+  const denied = await denyUnauthorized(req);
   if (denied) return denied;
 
   let draft = "";
@@ -71,10 +72,8 @@ export async function POST(req: Request) {
           send(chunk);
         }
       } catch (err) {
-        send({
-          type: "error",
-          error: err instanceof Error ? err.message : "Evaluation failed.",
-        });
+        // The status line is already committed, so only the curated message travels in-band.
+        send({ type: "error", error: toClientError(err, "Evaluation failed.").message });
       } finally {
         controller.close();
       }

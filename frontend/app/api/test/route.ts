@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { toClientError } from "@/lib/apiError";
 import { denyUnauthorized } from "@/lib/auth";
 import { MODEL } from "@/lib/model";
 import { MISSING_ANTHROPIC_KEY, resolveAnthropicKey } from "@/lib/keys";
@@ -19,7 +20,7 @@ const MAX_CHARS = 20_000;
 export async function POST(req: Request) {
   // This route runs an arbitrary prompt on the server-side Anthropic key: without this gate it
   // is a free Claude proxy for any allowed account (and, unchecked, the whole internet).
-  const denied = await denyUnauthorized();
+  const denied = await denyUnauthorized(req);
   if (denied) return denied;
 
   let prompt = "";
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
       .join("");
     return NextResponse.json({ output });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Test failed.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { status, message } = toClientError(err, "Test failed.");
+    return NextResponse.json({ error: message }, { status });
   }
 }

@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
-// Conservative security headers applied to every response. Deliberately no Content-Security-Policy
-// here — a wrong CSP silently breaks the app, and adding one warrants its own review.
+// Conservative security headers applied to every response. The Content-Security-Policy is NOT
+// here — it lives in proxy.ts, because it embeds a per-request nonce that a static config can't.
 const securityHeaders = [
   // This app is never meant to be framed; deny it outright to prevent clickjacking.
   { key: "X-Frame-Options", value: "DENY" },
