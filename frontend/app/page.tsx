@@ -10,6 +10,7 @@ import { EvaluatingState } from "@/components/EvaluatingState";
 import { TestDrawer } from "@/components/TestDrawer";
 import { SignOutButton } from "@/components/SignOutButton";
 import { FrameworkSelect } from "@/components/FrameworkSelect";
+import { SuggestFramework } from "@/components/SuggestFramework";
 import { MicButton } from "@/components/MicButton";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { OpenInProviders } from "@/components/OpenInProviders";
@@ -290,6 +291,12 @@ export default function Home() {
                 <FrameworkSelect
                   value={framework}
                   onChange={setFramework}
+                  disabled={loading}
+                />
+                <SuggestFramework
+                  draft={draft}
+                  value={framework}
+                  onApply={setFramework}
                   disabled={loading}
                 />
                 <textarea
