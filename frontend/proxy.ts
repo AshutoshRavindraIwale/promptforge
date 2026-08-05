@@ -111,6 +111,6 @@ export const config = {
   // Listed individually on purpose: a new /api route left off this list gets a useless redirect
   // rather than silently losing its gate, which is the safer way to fail.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/evaluate|api/test|api/transcribe|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/evaluate|api/test|api/transcribe|api/suggest-framework|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
