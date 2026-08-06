@@ -12,6 +12,8 @@ dimension — streaming the scorecard in as it's written — then returns a prio
 ready-to-use rewrite. Save the result to a searchable library, refine it again, or test the
 original and the rewrite side by side on real input.
 
+![The PromptForge evaluate screen: a framework selector, a prompt input, and the Forge it button](docs/images/evaluate-screen.png)
+
 Seven frameworks ship built in:
 
 | Framework | For |
