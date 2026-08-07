@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Scorecard } from "@/components/Scorecard";
 import { RevisedPrompt } from "@/components/RevisedPrompt";
 import { SaveDialog, type SavePayload } from "@/components/SaveDialog";
@@ -14,8 +14,10 @@ import { SuggestFramework } from "@/components/SuggestFramework";
 import { MicButton } from "@/components/MicButton";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { OpenInProviders } from "@/components/OpenInProviders";
+import { Tour, type TourStep } from "@/components/Tour";
 import { addEntry } from "@/lib/library";
 import { keyHeaders } from "@/lib/apiKeys";
+import { hasSeenTour, markTourSeen } from "@/lib/tour";
 import {
   DEFAULT_FRAMEWORK_ID,
   getFramework,
@@ -58,6 +60,35 @@ function toPartial(json: string, framework: Framework): PartialEvaluation | null
   };
 }
 
+// The four things a first-time user won't discover on their own. The core loop (paste →
+// Forge it) is self-evident from the empty state, so the tour doesn't narrate it.
+const TOUR_STEPS: TourStep[] = [
+  {
+    target: "framework",
+    title: "Pick a framework",
+    body: "Every framework grades with its own rubric — video prompts included. Not sure which fits? “Suggest a framework” reads your draft and recommends one.",
+  },
+  {
+    target: "draft",
+    title: "Drop in a rough prompt",
+    body: "Type, paste, or dictate with the mic — then hit Forge it. The scorecard streams in with a priority fix and a ready-to-use rewrite.",
+  },
+  {
+    target: "library",
+    title: "Your prompt library",
+    body: "Prompts you save land here — searchable, reusable, and ready to refine again as your needs change.",
+  },
+  {
+    target: "keys",
+    title: "Bring your own keys",
+    body: "Add your Claude and Groq keys to spend your own quota. They're stored only in this browser.",
+  },
+];
+
+// One click to a first wow: fills the draft with a famously vague prompt so a new user can
+// forge something real in seconds instead of composing a draft first.
+const EXAMPLE_PROMPT = "Make me a workout plan.";
+
 function Wordmark() {
   return (
     <span className="flex items-center gap-2.5 text-[15px] font-medium tracking-[-0.01em] text-ink">
@@ -85,6 +116,21 @@ export default function Home() {
   const [showRefine, setShowRefine] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  const [showTour, setShowTour] = useState(false);
+
+  // First visit in this browser: offer the tour once. Runs in an effect because localStorage
+  // doesn't exist during server rendering; the short delay lets the page settle before the
+  // spotlight appears (and satisfies the no-sync-setState-in-effect rule).
+  useEffect(() => {
+    if (hasSeenTour()) return;
+    const t = window.setTimeout(() => setShowTour(true), 600);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  function closeTour() {
+    markTourSeen();
+    setShowTour(false);
+  }
 
   async function evaluate(input: string, focus?: string) {
     const text = input.trim();
@@ -211,6 +257,7 @@ export default function Home() {
           ).map(([v, label]) => (
             <button
               key={v}
+              data-tour={v === "library" ? "library" : undefined}
               onClick={() => setView(v)}
               className={`whitespace-nowrap rounded-full px-2.5 py-1.5 text-[13px] transition-colors hover:bg-surface hover:text-ink sm:px-3.5 ${
                 view === v ? "text-ink" : "text-ink-2"
@@ -223,6 +270,7 @@ export default function Home() {
             onClick={() => setShowSettings(true)}
             aria-label="API key settings"
             title="API keys"
+            data-tour="keys"
             className="inline-flex items-center justify-center rounded-full p-2 text-ink-3 transition-colors hover:bg-surface hover:text-ink pointer-coarse:size-11 pointer-coarse:p-0"
           >
             <svg
@@ -288,18 +336,21 @@ export default function Home() {
                   idle ? "" : "mt-4"
                 }`}
               >
-                <FrameworkSelect
-                  value={framework}
-                  onChange={setFramework}
-                  disabled={loading}
-                />
-                <SuggestFramework
-                  draft={draft}
-                  value={framework}
-                  onApply={setFramework}
-                  disabled={loading}
-                />
+                <div data-tour="framework">
+                  <FrameworkSelect
+                    value={framework}
+                    onChange={setFramework}
+                    disabled={loading}
+                  />
+                  <SuggestFramework
+                    draft={draft}
+                    value={framework}
+                    onApply={setFramework}
+                    disabled={loading}
+                  />
+                </div>
                 <textarea
+                  data-tour="draft"
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={(e) => {
@@ -331,6 +382,17 @@ export default function Home() {
                     {loading ? "Forging…" : "Forge it"}
                   </button>
                 </div>
+              </div>
+            )}
+
+            {idle && !draft.trim() && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => setDraft(EXAMPLE_PROMPT)}
+                  className="rounded-full border border-line px-4 py-2 text-xs text-ink-3 transition-colors hover:border-ink-3 hover:text-ink"
+                >
+                  Try an example: “{EXAMPLE_PROMPT}”
+                </button>
               </div>
             )}
 
@@ -422,8 +484,18 @@ export default function Home() {
       )}
 
       {showSettings && (
-        <SettingsDialog onClose={() => setShowSettings(false)} />
+        <SettingsDialog
+          onClose={() => setShowSettings(false)}
+          onReplayTour={() => {
+            // The tour spotlights the evaluate screen, so make sure it's showing.
+            setShowSettings(false);
+            setView("evaluate");
+            setShowTour(true);
+          }}
+        />
       )}
+
+      {showTour && <Tour steps={TOUR_STEPS} onClose={closeTour} />}
 
       {showSave && result && (
         <SaveDialog
