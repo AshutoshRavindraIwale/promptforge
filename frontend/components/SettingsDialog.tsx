@@ -7,7 +7,14 @@ import { getApiKeys, setApiKeys } from "@/lib/apiKeys";
 // Bring-your-own-key settings: paste a Claude and/or Groq key to have the app spend your
 // quota instead of the server's. Keys never leave this browser except as headers on this
 // app's own API calls (see lib/apiKeys.ts), so clearing a field is a full revoke.
-export function SettingsDialog({ onClose }: { onClose: () => void }) {
+export function SettingsDialog({
+  onClose,
+  onReplayTour,
+}: {
+  onClose: () => void;
+  /** Re-runs the first-visit feature tour; omitting it hides the button. */
+  onReplayTour?: () => void;
+}) {
   const [keys, setKeys] = useState(getApiKeys);
   const [reveal, setReveal] = useState(false);
 
@@ -98,20 +105,33 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           Show keys
         </label>
 
-        <div className="mt-6 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full px-4 py-2 text-[13px] text-ink-3 transition-colors hover:text-ink"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="rounded-full bg-ember px-5 py-2 text-[13px] font-medium text-bg transition hover:brightness-110"
-          >
-            Save
-          </button>
+        <div className="mt-6 flex items-center justify-between gap-2">
+          {onReplayTour ? (
+            <button
+              type="button"
+              onClick={onReplayTour}
+              className="rounded-full py-2 text-[13px] text-ink-3 transition-colors hover:text-ink"
+            >
+              Replay the tour
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full px-4 py-2 text-[13px] text-ink-3 transition-colors hover:text-ink"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="rounded-full bg-ember px-5 py-2 text-[13px] font-medium text-bg transition hover:brightness-110"
+            >
+              Save
+            </button>
+          </div>
         </div>
       </form>
     </Modal>
