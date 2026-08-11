@@ -17,8 +17,13 @@ const MAX_CLASSIFY_CHARS = 4_000;
 
 // The framework list and the output schema are both derived from lib/frameworks.ts, so a new
 // framework is suggestable the moment it's defined — no changes here.
+const KIND_HINTS: Record<string, string> = {
+  video: ", for AI-video prompts",
+  agent: ", for AI-agent artifacts",
+};
+
 const FRAMEWORK_LINES = FRAMEWORKS.map(
-  (f) => `- ${f.id} (${f.name}${f.kind === "video" ? ", for AI-video prompts" : ""}): ${f.tagline}`,
+  (f) => `- ${f.id} (${f.name}${KIND_HINTS[f.kind ?? ""] ?? ""}): ${f.tagline}`,
 ).join("\n");
 
 const SYSTEM = `You pick the best-fit prompt-engineering framework for evaluating a draft prompt.
@@ -30,6 +35,14 @@ Rules:
 - Pick a video framework only when the draft is clearly for an AI video generator (Sora, Veo,
   Runway, Kling — shots, camera moves, scenes). "Video Narrative" is for multi-shot sequences;
   "Cinematic Video" for a single clip.
+- Pick an agent framework only when the draft IS an agent artifact, not merely about agents.
+  "Agent System Prompt" is standing instructions defining an agent — an identity ("You are…"),
+  tool rules, guardrails, persistent behavior. "Agent Task Brief" is a one-shot work order for
+  an autonomous or coding agent: a goal with context, constraints, and done-criteria. "Tool
+  Description" documents a single tool, function, or MCP endpoint — what it does, when to call
+  it, parameters, return value.
+- A draft asking a model to write ABOUT agents or tools is a normal content prompt — classify
+  by what the draft is for, not its topic.
 - Prefer a specialized framework only when the draft clearly matches its purpose; when nothing
   stands out, choose "anthropic" — it is the general-purpose default.
 - The reason is shown to the user: one short sentence saying why this framework fits THIS draft,

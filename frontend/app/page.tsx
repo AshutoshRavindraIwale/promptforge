@@ -21,7 +21,8 @@ import { hasSeenTour, markTourSeen } from "@/lib/tour";
 import {
   DEFAULT_FRAMEWORK_ID,
   getFramework,
-  isVideoFramework,
+  supportsProviderHandoff,
+  supportsTest,
   type Framework,
 } from "@/lib/frameworks";
 import { parsePartialJson } from "@/lib/partialJson";
@@ -66,7 +67,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     target: "framework",
     title: "Pick a framework",
-    body: "Every framework grades with its own rubric — video prompts included. Not sure which fits? “Suggest a framework” reads your draft and recommends one.",
+    body: "Every framework grades with its own rubric — video and agent prompts included. Not sure which fits? “Suggest a framework” reads your draft and recommends one.",
   },
   {
     target: "draft",
@@ -234,13 +235,14 @@ export default function Home() {
 
   const idle = view === "evaluate" && !result && !loading;
 
-  // Test runs the prompt through a text model, which is meaningless for a video prompt — it would
-  // return prose describing a hypothetical clip. Keyed off the framework that produced THIS
-  // result rather than the `framework` selector state, which the user can change while a result
-  // is still on screen. A result with no framework recorded falls back to the default (text), so
-  // legacy results keep their Test button.
-  const canTest =
-    !!result && !isVideoFramework(getFramework(result.evaluation.framework?.id));
+  // The framework that produced THIS result — not the selector state, which the user can change
+  // while a result is still on screen. A result with no framework recorded falls back to the
+  // default (text), so legacy results keep today's behavior.
+  const resultFramework = getFramework(result?.evaluation.framework?.id);
+
+  // Test runs the prompt through a text model, which is meaningless for a video prompt (it would
+  // return prose describing a hypothetical clip) and for a tool description (not runnable at all).
+  const canTest = !!result && supportsTest(resultFramework);
 
   return (
     <div className="min-h-screen">
@@ -464,7 +466,10 @@ export default function Home() {
                     Discard
                   </button>
                 </div>
-                <OpenInProviders prompt={result.evaluation.revised_prompt} />
+                {/* A tool description lives in a tool schema, not a chat box — no handoff. */}
+                {supportsProviderHandoff(resultFramework) && (
+                  <OpenInProviders prompt={result.evaluation.revised_prompt} />
+                )}
               </div>
             )}
           </>
@@ -475,6 +480,7 @@ export default function Home() {
         <TestDrawer
           original={result.evaluation.prompt_evaluated}
           revised={result.evaluation.revised_prompt}
+          framework={resultFramework}
           onClose={() => setShowTest(false)}
         />
       )}
