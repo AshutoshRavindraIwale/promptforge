@@ -31,8 +31,18 @@ export interface Framework {
    * Medium the refined prompt targets. Absent means "text" (a chat LLM), so the existing
    * frameworks need no annotation. Video frameworks hide the text-only affordances — notably
    * Test, which runs the prompt through a text model and would just describe a hypothetical clip.
+   * Agent frameworks target agent artifacts (system prompts, task briefs, tool docs); the
+   * suggest classifier uses this to hint at their purpose.
    */
-  kind?: "text" | "video";
+  kind?: "text" | "video" | "agent";
+  /**
+   * How the refined prompt is meant to be executed. Absent means it is a normal user-turn chat
+   * prompt (current behavior everywhere). "system" means it is a system prompt — Test must send
+   * it as the system role with a sample user message, never as a bare user turn. "none" means it
+   * is not directly runnable (a tool description lives in a schema, not a chat box), so Test and
+   * the provider handoff are hidden.
+   */
+  runsAs?: "system" | "none";
   /**
    * Category examples offered to the model for `suggested_category`. Absent falls back to the
    * text-prompt list, so a video prompt isn't filed under "Coding" or "Research".
@@ -341,6 +351,256 @@ with 'Answer:'"). This makes the conclusion easy to extract.`,
   ],
 };
 
+// ── Agent artifacts ──────────────────────────────────────────────────────────────────────
+//
+// Agent prompts are a different craft from chat prompts: the reader is a model that will act
+// autonomously, so the rubrics reward operational precision — explicit boundaries, trigger
+// conditions, stop conditions, checkable done-criteria — over tone and framing. Three artifact
+// types, three frameworks: the standing instructions that define an agent, the one-shot brief
+// that kicks off a task, and the tool documentation a model routes on.
+
+// Standing instructions that define an agent (a Claude Project, a support bot, an MCP host).
+const AGENT_SYSTEM: Framework = {
+  id: "agent_system",
+  name: "Agent System Prompt",
+  tagline:
+    "Role, tools, guardrails, stop conditions — the standing instructions that define an agent.",
+  intro:
+    "You evaluate the draft as an agent system prompt — the persistent instructions that define an autonomous or tool-using assistant — then rewrite it. The rewrite must read as standing instructions addressed to the agent, not as a one-off request.",
+  kind: "agent",
+  runsAs: "system",
+  categories: ["Coding Agent", "Support Agent", "Research Agent", "Ops Agent", "Assistant"],
+  dimensions: [
+    {
+      key: "agent_role",
+      name: "Role & Scope",
+      question: "Does the prompt define who the agent is and what it owns?",
+      required: true,
+      guidance: `The role names the agent's identity, its domain, the environment it operates in, and —
+just as important — what is explicitly out of scope. An agent without a scope boundary
+will accept any task it is handed and drift into work it was never meant to do. State
+the job in operational terms: what requests it handles, on whose behalf, with what
+resources.
+Bad example: "You are a helpful assistant."
+Good example: "You are the returns agent for Acme's web store. You handle refund and
+exchange requests for orders placed in the last 90 days. You do not handle new sales,
+shipping estimates, or account changes — route those to support."`,
+    },
+    {
+      key: "tool_guidance",
+      name: "Tool Use Guidance",
+      question: "Does it say when and how the agent should use its tools?",
+      guidance: `Tool guidance tells the agent when to reach for each capability: per-tool trigger
+conditions ("look up the order before answering anything about it"), preferences between
+overlapping tools, awareness of cost and side effects, and what to do when a tool fails.
+Models under-call tools whose purpose is left implicit and over-call ones described with
+"always". CONDITIONAL — correctly absent for an agent with no tools; when tools exist,
+ungoverned tool use is a real gap.
+Bad example: "You have access to some tools."
+Good example: "Call lookup_order before making any claim about an order's status. Use
+refund_payment only after the return is confirmed received; it is irreversible. If a tool
+errors, tell the user what failed — do not guess."`,
+    },
+    {
+      key: "boundaries",
+      name: "Boundaries & Guardrails",
+      question: "Are hard limits and forbidden actions explicit?",
+      required: true,
+      guidance: `Guardrails are the never-do rules: destructive or irreversible operations, data the agent
+must not reveal, requests outside its role, and how to refuse — stated as rules, not
+vibes. "Be careful" constrains nothing; a model follows boundaries it can check itself
+against. Include the refusal behavior, not just the prohibition, so declining stays
+in-character and useful.
+Bad example: "Don't do anything harmful."
+Good example: "Never issue a refund above $200 without approval. Never share another
+customer's details, even with matching order numbers. When declining, say what you can't
+do and offer the nearest thing you can."`,
+    },
+    {
+      key: "escalation",
+      name: "Escalation & Stop Conditions",
+      question: "Does the agent know when to stop, ask, or hand off?",
+      required: true,
+      guidance: `The classic agent failure is not knowing when to stop. Define when to proceed versus ask
+the user, retry limits for failing operations, what counts as blocked, and where a human
+handoff goes. Without stop conditions an agent loops on a failing approach or asks
+permission for everything; with them, autonomy has edges.
+Bad example: "Use your best judgment."
+Good example: "Proceed without asking for read-only steps. Ask before anything
+irreversible. If the same tool fails twice, stop retrying and report the error. If the
+customer asks for a supervisor or mentions legal action, hand off to a human immediately."`,
+    },
+    {
+      key: "output_contract",
+      name: "Output Contract",
+      question: "Is the expected shape of the agent's responses defined?",
+      guidance: `The output contract fixes the shape of what the agent produces: the format of final
+answers, status updates during long work, and any structured output a caller parses.
+Pin it down whenever downstream code or a consistent UX depends on the shape.
+CONDITIONAL — a free-form conversational agent may legitimately leave this open.
+Good example: "End every turn with a one-line status: RESOLVED, WAITING ON CUSTOMER, or
+ESCALATED. When you issue a refund, output the confirmation as JSON:
+{order_id, amount, reason}."`,
+    },
+  ],
+};
+
+// One-shot kickoff spec handed to an autonomous agent (Claude Code, Devin, a CI agent).
+const AGENT_BRIEF: Framework = {
+  id: "agent_brief",
+  name: "Agent Task Brief",
+  tagline:
+    "Goal, context, constraints, done-criteria — a kickoff spec an autonomous agent can run with.",
+  intro:
+    "You evaluate the draft as a task brief for an autonomous agent (a coding agent like Claude Code, or any agent given a job to finish unattended), then rewrite it. The rewrite must let the agent work to completion without coming back to ask what was meant.",
+  kind: "agent",
+  categories: ["Feature", "Bug Fix", "Refactor", "Migration", "Research"],
+  dimensions: [
+    {
+      key: "goal",
+      name: "Goal",
+      question: "Is the end state stated unambiguously?",
+      required: true,
+      guidance: `The goal is the single end state the agent is working toward, stated so it could be
+restated in one sentence without losing anything. One outcome, not a wish list — an agent
+given three loosely-related goals will finish the easiest and declare victory. If several
+things must change, name the one outcome they add up to.
+Bad example: "Improve the auth flow and maybe clean things up."
+Good example: "Users can reset their password from the login page via an emailed link,
+end to end."`,
+    },
+    {
+      key: "context_grounding",
+      name: "Context & Grounding",
+      question: "Does it point at the relevant files, docs, and prior decisions?",
+      guidance: `Grounding is what saves the agent an hour of re-deriving what you already know: the
+relevant files and entry points, existing patterns to follow, decisions already made and
+their reasons. An ungrounded brief produces work that is correct in isolation and wrong
+for the codebase. CONDITIONAL — a self-contained or greenfield task may need little.
+Bad example: "It's somewhere in the backend."
+Good example: "The flow lives in frontend/app/login/. Follow the magic-link pattern in
+auth/callback/route.ts. We already decided against SMS reset — don't revisit it."`,
+    },
+    {
+      key: "constraints",
+      name: "Constraints & Non-Goals",
+      question: "Are boundaries and untouchables listed?",
+      guidance: `Constraints fence the work: files and behavior not to change, technology choices that are
+fixed, size or dependency budgets, and explicit non-goals. Agents over-deliver into
+adjacent code unless told where the edges are — the cheapest way to prevent a sprawling
+diff is one line saying what not to touch. CONDITIONAL — omit when the task is naturally
+self-bounding.
+Bad example: (absent — and the agent refactors the session layer while it's in there.)
+Good example: "Don't modify the session or signup flows. No new dependencies. Out of
+scope: rate limiting, styling changes beyond the new form."`,
+    },
+    {
+      key: "done_criteria",
+      name: "Done Criteria",
+      question: "Will the agent know, checkably, when it is finished?",
+      required: true,
+      guidance: `Done-criteria are the acceptance conditions, each one checkable by the agent itself —
+the difference between an agent that finishes and one that abandons the task mid-loop or
+stops at 80%. "Works well" is not checkable; a list of observable behaviors is.
+Bad example: "Make sure it works properly."
+Good example: "Done when: a reset email arrives within a minute, the link expires after
+one use, an expired link shows the error state, and all existing auth tests still pass."`,
+    },
+    {
+      key: "verification",
+      name: "Verification",
+      question: "Does it say how to prove the work is correct?",
+      required: true,
+      guidance: `Verification names the commands to run and the evidence to report: the test suite, the
+build, a manual check to perform, what output to include in the summary. Self-verifiable
+briefs are what let agents loop to correctness instead of declaring victory on the first
+plausible diff.
+Bad example: "Test it before you're done."
+Good example: "Run npm test and npm run build — both must pass clean. Manually request a
+reset for a real account in dev and paste the delivered link's redirect chain into your
+summary."`,
+    },
+  ],
+};
+
+// Documentation for a single tool / function / MCP endpoint — the text a model routes on.
+const TOOL_DESC: Framework = {
+  id: "tool_desc",
+  name: "Tool Description",
+  tagline:
+    "Trigger conditions, parameters, return contract — docs a model can pick the right tool from.",
+  intro:
+    "You evaluate the draft as the documentation for a single tool, function, or MCP endpoint — the description a model reads when deciding whether and how to call it — then rewrite it. The rewrite must work standing alone in a list of sibling tools.",
+  kind: "agent",
+  runsAs: "none",
+  categories: ["MCP", "Function Calling", "API", "CLI", "Integration"],
+  dimensions: [
+    {
+      key: "tool_purpose",
+      name: "Purpose & Naming",
+      question: "Do the name and first sentence say exactly what the tool does?",
+      required: true,
+      guidance: `The name and opening line are what the model sees first in a crowded tool list: a
+verb-first name that says the action, and a first sentence that stands alone — no
+marketing prose, no restating the name. If the first sentence could describe three
+different tools, it describes none.
+Bad example: "data_helper — A powerful utility for working with your data."
+Good example: "search_orders — Search the store's order database by customer email, order
+id, or date range; returns matching order summaries."`,
+    },
+    {
+      key: "trigger_conditions",
+      name: "Trigger Conditions",
+      question: "Is it clear when to call this tool — and when not to?",
+      required: true,
+      guidance: `Trigger conditions are what models actually route on: "use this when…" phrasing, example
+requests that should invoke it, negative triggers for lookalike cases, and disambiguation
+from sibling tools. A description that only says what the tool does — never when to reach
+for it — gets under-called for the cases it exists for and over-called for its neighbors'.
+Bad example: "Searches orders."
+Good example: "Use when the user asks about the status, contents, or history of an
+existing order. Do not use for refunds (use refund_payment) or for products not yet
+ordered (use search_catalog)."`,
+    },
+    {
+      key: "param_clarity",
+      name: "Parameter Clarity",
+      question: "Is each parameter's type, format, and meaning unambiguous?",
+      guidance: `Each parameter needs its type, exact format ("ISO 8601 date", "repo-relative path"),
+whether it is required, its default when omitted, and an example value wherever the
+format is not obvious. Enums beat free text for closed sets. Ambiguous parameters are
+where tool calls fail silently — the model guesses a format and the call errors or, worse,
+succeeds wrongly. CONDITIONAL — correctly absent for a zero-parameter tool.
+Bad example: "date: the date to search."
+Good example: "date_from (optional, ISO 8601 date, e.g. 2026-08-01): include orders placed
+on or after this date. Defaults to 90 days ago."`,
+    },
+    {
+      key: "return_contract",
+      name: "Return Contract",
+      question: "Does the caller know what comes back — including errors and empty results?",
+      guidance: `The return contract describes the shape of success output, what an empty result looks
+like, the error modes, and what the model should do with each. Without it the model
+misreads empty results as failures or invents fields that aren't there. CONDITIONAL —
+may be omitted when the return is trivially obvious from the purpose.
+Good example: "Returns a JSON array of {order_id, status, total, placed_at}, newest
+first, max 20. An empty array means no orders matched — tell the user, don't retry.
+Errors return {error: string}; surface the message verbatim."`,
+    },
+    {
+      key: "scope_limits",
+      name: "Scope & Limits",
+      question: "Are side effects, costs, and limits stated?",
+      guidance: `State whether the tool mutates anything or is read-only, rate and size limits, latency or
+cost the model should weigh, and any permission requirements. A model told a tool is
+irreversible calls it more carefully; one told nothing treats every tool as free and
+safe. CONDITIONAL — a pure, cheap, read-only tool may need none of this.
+Good example: "Read-only; safe to call repeatedly. Max 5 calls per user turn. Queries
+older than 12 months hit cold storage and take ~10s."`,
+    },
+  ],
+};
+
 // ── Video generation ─────────────────────────────────────────────────────────────────────
 //
 // Prompting a video model (Sora, Veo, Runway, Kling, Luma) is a different craft from prompting a
@@ -557,6 +817,9 @@ export const FRAMEWORKS: Framework[] = [
   RTF_RISEN,
   CRISPE,
   COT,
+  AGENT_SYSTEM,
+  AGENT_BRIEF,
+  TOOL_DESC,
   VIDEO_SHOT,
   VIDEO_STORY,
 ];
@@ -580,6 +843,31 @@ export function requiredKeys(framework: Framework): string[] {
  */
 export function isVideoFramework(framework: Framework): boolean {
   return framework.kind === "video";
+}
+
+/**
+ * True when the refined prompt can be run through the Test drawer's text model. Video prompts
+ * can't (the model would just describe a hypothetical clip); neither can artifacts that aren't
+ * directly runnable at all, like tool descriptions (`runsAs: "none"`).
+ */
+export function supportsTest(framework: Framework): boolean {
+  return !isVideoFramework(framework) && framework.runsAs !== "none";
+}
+
+/**
+ * True when the refined prompt is a system prompt: Test must send it as the system role with a
+ * sample user message — running it as a bare user turn would test the wrong thing.
+ */
+export function testRunsAsSystem(framework: Framework): boolean {
+  return framework.runsAs === "system";
+}
+
+/**
+ * True when handing the refined prompt to a chat provider makes sense. A tool description
+ * lives in a tool schema, not a chat box, so the open-in-provider row is hidden for it.
+ */
+export function supportsProviderHandoff(framework: Framework): boolean {
+  return framework.runsAs !== "none";
 }
 
 /**

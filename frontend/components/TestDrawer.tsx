@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { testRunsAsSystem, type Framework } from "@/lib/frameworks";
 import { testPrompt } from "@/lib/testPrompt";
 import { fillTemplate } from "@/lib/template";
 import { Markdown } from "./Markdown";
@@ -79,18 +80,26 @@ function OutputPane({
 export function TestDrawer({
   original,
   revised,
+  framework,
   onClose,
 }: {
   original: string;
   revised: string;
+  /** The framework that produced this result — decides how the prompts are run. */
+  framework: Framework;
   onClose: () => void;
 }) {
+  // A system prompt only tests meaningfully as the system role over a user turn (with no
+  // input the API falls back to running the prompt AS the user turn — the wrong shape), so
+  // agent-system results open with the input field ready and require it before running.
+  const asSystem = testRunsAsSystem(framework);
   const [input, setInput] = useState("");
-  const [showInput, setShowInput] = useState(false);
+  const [showInput, setShowInput] = useState(asSystem);
   const [left, setLeft] = useState<PaneState>({ status: "idle" });
   const [right, setRight] = useState<PaneState>({ status: "idle" });
 
   const running = left.status === "loading" || right.status === "loading";
+  const needsInput = asSystem && !input.trim();
 
   function runSide(
     prompt: string,
@@ -110,7 +119,7 @@ export function TestDrawer({
   }
 
   function run() {
-    if (running) return;
+    if (running || needsInput) return;
     // Fire both sides in parallel; each pane settles (or errors) independently.
     void runSide(original, setLeft);
     void runSide(revised, setRight);
@@ -146,7 +155,11 @@ export function TestDrawer({
               autoFocus
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Paste a sample input for the prompts to work on…"
+              placeholder={
+                asSystem
+                  ? "Paste a sample user message or task for the agent to respond to…"
+                  : "Paste a sample input for the prompts to work on…"
+              }
               rows={3}
               className="mb-3 w-full resize-none rounded-xl border border-line bg-raised px-4 py-3 font-mono text-xs leading-[1.7] text-ink outline-none transition-colors placeholder:text-ink-3 focus:border-ink-3"
             />
@@ -163,14 +176,22 @@ export function TestDrawer({
                   : "+ Add sample input"}
             </button>
             <span className="flex items-center gap-3">
-              {!showInput && !input.trim() && (
+              {asSystem && needsInput ? (
                 <span className="hidden text-xs text-ink-3 sm:block">
-                  No input needed if the prompt stands alone.
+                  System prompts run as the system role — they need a sample user
+                  message.
                 </span>
+              ) : (
+                !showInput &&
+                !input.trim() && (
+                  <span className="hidden text-xs text-ink-3 sm:block">
+                    No input needed if the prompt stands alone.
+                  </span>
+                )
               )}
               <button
                 onClick={run}
-                disabled={running}
+                disabled={running || needsInput}
                 className="rounded-full bg-ember px-5 py-2 text-[13px] font-medium text-bg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {running
