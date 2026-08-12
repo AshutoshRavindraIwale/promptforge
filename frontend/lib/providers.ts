@@ -28,8 +28,12 @@ export const CHAT_PROVIDERS: ChatProvider[] = [
     id: "claude",
     name: "Claude",
     home: "https://claude.ai/new",
-    // Scheme registered by Claude.app (CFBundleURLSchemes in its Info.plist).
-    app: "claude://",
+    // Canonical "open the Claude chat surface" deep link. Claude.app registers the
+    // `claude` scheme (CFBundleURLSchemes), but a bare `claude://` is an ambiguous entry
+    // point — the app can resume its last state instead of coming to the front. The app's
+    // own bundles route the chat surface at `claude://claude`, so use that to reliably
+    // foreground it.
+    app: "claude://claude",
   },
   {
     id: "chatgpt",
