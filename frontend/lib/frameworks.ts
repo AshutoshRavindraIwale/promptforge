@@ -29,12 +29,12 @@ export interface Framework {
   intro: string;
   /**
    * Medium the refined prompt targets. Absent means "text" (a chat LLM), so the existing
-   * frameworks need no annotation. Video frameworks hide the text-only affordances — notably
-   * Test, which runs the prompt through a text model and would just describe a hypothetical clip.
-   * Agent frameworks target agent artifacts (system prompts, task briefs, tool docs); the
-   * suggest classifier uses this to hint at their purpose.
+   * frameworks need no annotation. Video and image frameworks hide the text-only affordances —
+   * notably Test, which runs the prompt through a text model and would just describe a
+   * hypothetical clip or picture. Agent frameworks target agent artifacts (system prompts, task
+   * briefs, tool docs); the suggest classifier uses this to hint at their purpose.
    */
-  kind?: "text" | "video" | "agent";
+  kind?: "text" | "video" | "image" | "agent";
   /**
    * How the refined prompt is meant to be executed. Absent means it is a normal user-turn chat
    * prompt (current behavior everywhere). "system" means it is a system prompt — Test must send
@@ -601,6 +601,113 @@ older than 12 months hit cold storage and take ~10s."`,
   ],
 };
 
+// ── Image generation ─────────────────────────────────────────────────────────────────────
+//
+// Prompting an image model (Midjourney, DALL·E, Stable Diffusion, Flux, Imagen) is closer to
+// briefing a photographer than instructing an assistant: you describe the finished picture, and
+// every attribute you leave unstated the model fills in with its own defaults — centred framing,
+// eye-level, glossy over-lit digital art. Two things drive most of the guidance below. First,
+// composition is the highest-leverage element drafts omit almost universally. Second, the
+// quality-keyword habit ("4k, ultra detailed, masterpiece") does close to nothing on modern
+// models while crowding out the description that would actually have helped.
+//
+// Like the video frameworks, this one deliberately avoids tool-specific flag syntax — the
+// per-tool parameters churn, the underlying craft does not.
+const IMAGE_GEN: Framework = {
+  id: "image_gen",
+  name: "Image Generation",
+  tagline:
+    "Subject, composition, light, style — for a generated still image (Midjourney, DALL·E, Stable Diffusion, Flux).",
+  intro:
+    "You evaluate the draft as a prompt for an AI image generator, then rewrite it as an image description. The rewrite must read as a description of the finished picture — never as an instruction addressed to an assistant.",
+  kind: "image",
+  categories: ["Illustration", "Photography", "Concept Art", "Marketing", "Product"],
+  dimensions: [
+    {
+      key: "subject",
+      name: "Subject",
+      question: "Is the subject described with concrete visual specificity?",
+      required: true,
+      guidance: `The subject is what the picture is of, described in terms a camera or a brush could
+capture: age, build, wardrobe, material, colour, texture, wear, expression, posture.
+Abstract nouns ("a businessman", "a nice house") hand the model a category average, and
+what comes back is a stock-photo cliché. Name ONE primary subject where you can — with
+several, image models routinely blend their attributes together or duplicate limbs and
+faces.
+Bad example: "a woman with her dog."
+Good example: "a woman in her late 60s, deep smile lines, silver hair pinned back loosely,
+mustard-yellow raincoat over a grey sweater, one hand resting on the head of a
+wiry-haired terrier."`,
+    },
+    {
+      key: "composition",
+      name: "Composition & Framing",
+      question: "Are shot size, angle, subject placement, and depth specified?",
+      required: true,
+      guidance: `Composition is the single highest-leverage thing most drafts leave out entirely, and
+omitting it means accepting the model's default: subject centred, mid-distance, eye-level,
+everything in focus. Specify shot size (extreme close-up, close-up, medium, wide,
+establishing), camera angle (eye-level, low, high, overhead, dutch), where the subject
+sits in the frame, depth of field, and the aspect ratio the image is for.
+Bad example: unstated, or "a good composition."
+Good example: "tight three-quarter portrait from slightly below eye level, subject offset
+to the left third, shallow depth of field with the background falling away, vertical 4:5
+crop."`,
+    },
+    {
+      key: "style_medium",
+      name: "Style & Medium",
+      question: "Is the visual medium and stylistic reference established?",
+      required: true,
+      guidance: `Style declares what KIND of image this is — photograph (and which kind: 35mm film,
+medium-format, editorial, documentary), oil painting, watercolour, ink drawing, cel
+animation, 3D render, technical illustration, collage — anchored with an era, movement,
+or process. This is where quality-keyword spam goes to die: "4k, ultra-detailed,
+masterpiece, trending on artstation" contributes almost nothing on current models and
+displaces description that would. Name the medium instead.
+Bad example: "high quality, 8k, highly detailed, beautiful, masterpiece."
+Good example: "editorial portrait on medium-format film, natural grain, muted print-like
+colour, the restrained look of 1970s magazine photography."`,
+    },
+    {
+      key: "lighting",
+      name: "Lighting",
+      question: "Is the quality, direction, and source of light described?",
+      guidance: `Lighting is most of what separates an image that reads as photographed from one that
+reads as generated. Describe quality (hard, soft, diffused), direction (backlit, side-lit,
+top-down, rim), source (window light, overcast sky, single bare bulb, studio softbox,
+sodium streetlamp), and the resulting contrast. CONDITIONAL — correctly absent for flat
+vector art, diagrams, logos, and other work where lighting is not a concept.
+Good example: "a single large window camera-left, soft directional light, deep falloff
+into shadow across the right of the face, no fill."`,
+    },
+    {
+      key: "setting",
+      name: "Setting & Background",
+      question: "Is the environment and background treatment established?",
+      guidance: `The setting places the subject: location, surfaces, props, weather, and how the background
+is treated (seamless white, thrown out of focus, dense and detailed). An unspecified
+background is where image models improvise most freely and least usefully — cluttered,
+tonally mismatched, or full of half-formed objects. CONDITIONAL — a tight macro crop or an
+isolated object on a plain ground may not need one.
+Good example: "a cluttered ceramics studio, half-glazed pots on raw wooden shelving
+behind, dusty afternoon air, background thrown well out of focus."`,
+    },
+    {
+      key: "technical",
+      name: "Technical Constraints",
+      question: "Are exclusions and hard requirements stated where they matter?",
+      guidance: `The non-descriptive requirements: the aspect ratio the image must fit, what to keep OUT
+of the frame, and anything the output has to satisfy exactly. This is also where you route
+around what image models still handle badly — legible small text, precise hand positions,
+exact object counts, real brand marks — either by excluding them or by not building the
+image around them. CONDITIONAL — many prompts need none of this.
+Good example: "3:2 landscape. Keep out: text, watermarks, logos, lens flare. No hands in
+frame."`,
+    },
+  ],
+};
+
 // ── Video generation ─────────────────────────────────────────────────────────────────────
 //
 // Prompting a video model (Sora, Veo, Runway, Kling, Luma) is a different craft from prompting a
@@ -820,6 +927,7 @@ export const FRAMEWORKS: Framework[] = [
   AGENT_SYSTEM,
   AGENT_BRIEF,
   TOOL_DESC,
+  IMAGE_GEN,
   VIDEO_SHOT,
   VIDEO_STORY,
 ];
@@ -837,21 +945,21 @@ export function requiredKeys(framework: Framework): string[] {
 }
 
 /**
- * True for frameworks whose output targets a video generator. Callers use this to hide the
- * text-only affordances (Test); `kind` is left absent on the text frameworks, so this reads
- * false for them and for anything that predates the field.
+ * True for frameworks whose output targets a generative media model (video, image) rather than
+ * a text one. Callers use this to hide the text-only affordances (Test); `kind` is left absent
+ * on the text frameworks, so this reads false for them and for anything that predates the field.
  */
-export function isVideoFramework(framework: Framework): boolean {
-  return framework.kind === "video";
+export function isMediaFramework(framework: Framework): boolean {
+  return framework.kind === "video" || framework.kind === "image";
 }
 
 /**
- * True when the refined prompt can be run through the Test drawer's text model. Video prompts
- * can't (the model would just describe a hypothetical clip); neither can artifacts that aren't
- * directly runnable at all, like tool descriptions (`runsAs: "none"`).
+ * True when the refined prompt can be run through the Test drawer's text model. Media prompts
+ * can't (the model would just describe a hypothetical clip or picture); neither can artifacts
+ * that aren't directly runnable at all, like tool descriptions (`runsAs: "none"`).
  */
 export function supportsTest(framework: Framework): boolean {
-  return !isVideoFramework(framework) && framework.runsAs !== "none";
+  return !isMediaFramework(framework) && framework.runsAs !== "none";
 }
 
 /**
