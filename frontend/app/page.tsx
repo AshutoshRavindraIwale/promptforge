@@ -67,7 +67,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     target: "framework",
     title: "Pick a framework",
-    body: "Every framework grades with its own rubric — video and agent prompts included. Not sure which fits? “Suggest a framework” reads your draft and recommends one.",
+    body: "Every framework grades with its own rubric — image, video, and agent prompts included. Not sure which fits? “Suggest a framework” reads your draft and recommends one.",
   },
   {
     target: "draft",
@@ -240,8 +240,9 @@ export default function Home() {
   // default (text), so legacy results keep today's behavior.
   const resultFramework = getFramework(result?.evaluation.framework?.id);
 
-  // Test runs the prompt through a text model, which is meaningless for a video prompt (it would
-  // return prose describing a hypothetical clip) and for a tool description (not runnable at all).
+  // Test runs the prompt through a text model, which is meaningless for a video or image prompt
+  // (it would return prose describing a hypothetical clip or picture) and for a tool description
+  // (not runnable at all).
   const canTest = !!result && supportsTest(resultFramework);
 
   return (

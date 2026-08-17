@@ -19,6 +19,7 @@ const MAX_CLASSIFY_CHARS = 4_000;
 // framework is suggestable the moment it's defined — no changes here.
 const KIND_HINTS: Record<string, string> = {
   video: ", for AI-video prompts",
+  image: ", for AI-image prompts",
   agent: ", for AI-agent artifacts",
 };
 
@@ -35,6 +36,10 @@ Rules:
 - Pick a video framework only when the draft is clearly for an AI video generator (Sora, Veo,
   Runway, Kling — shots, camera moves, scenes). "Video Narrative" is for multi-shot sequences;
   "Cinematic Video" for a single clip.
+- "Image Generation" is for a still picture (Midjourney, DALL·E, Stable Diffusion, Flux) — a
+  described scene with no motion, duration, or shot sequence. Motion or time is what separates
+  it from video: a draft describing what something looks like is an image; one describing
+  something moving, a camera move, or a run of shots is video.
 - Pick an agent framework only when the draft IS an agent artifact, not merely about agents.
   "Agent System Prompt" is standing instructions defining an agent — an identity ("You are…"),
   tool rules, guardrails, persistent behavior. "Agent Task Brief" is a one-shot work order for
