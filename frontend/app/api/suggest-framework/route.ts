@@ -48,6 +48,10 @@ Rules:
   it, parameters, return value.
 - A draft asking a model to write ABOUT agents or tools is a normal content prompt — classify
   by what the draft is for, not its topic.
+- "Healthcare" is for prompts whose output carries clinical weight — clinical documentation,
+  patient-facing instructions or education, medical evidence work. The tell is that a wrong
+  answer could affect someone's care. A business or marketing draft that merely has a health
+  topic (a healthtech landing page, an industry blog post) is a normal content prompt.
 - Prefer a specialized framework only when the draft clearly matches its purpose; when nothing
   stands out, choose "anthropic" — it is the general-purpose default.
 - The reason is shown to the user: one short sentence saying why this framework fits THIS draft,
