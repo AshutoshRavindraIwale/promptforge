@@ -351,6 +351,126 @@ with 'Answer:'"). This makes the conclusion easy to extract.`,
   ],
 };
 
+// ── Healthcare ───────────────────────────────────────────────────────────────────────────
+//
+// Health prompts carry a cost the other rubrics don't have to price in: a fluent, confident,
+// wrong answer about a dose or a symptom can do real harm. So the safety dimensions here are
+// REQUIRED — a draft that names no audience, sets no boundaries, or grounds nothing in a source
+// cannot score well however clear its prose is. The rubric is meant to work as a guardrail, not
+// just a grade.
+//
+// One framework covers both clinician-facing and patient-facing work rather than two. The two
+// audiences pull in opposite directions (terminology precision vs. plain language), but that
+// tension belongs inside the per-dimension guidance — and declaring which one you are writing
+// for is itself the first thing a good health prompt does.
+
+const HEALTHCARE: Framework = {
+  id: "healthcare",
+  name: "Healthcare",
+  tagline:
+    "Audience, safety boundaries, evidence grounding — for clinical and patient-facing prompts.",
+  intro:
+    "You evaluate the draft as a healthcare prompt — clinical documentation, patient communication, or health education — then rewrite it. Hold the rewrite to a clinical-safety bar: it must name its audience, state what the model may not do, and ground its claims in a source. What such a prompt produces is always a draft for a qualified human to review, never a final clinical answer; where a reader could mistake it for one, the rewrite should say so.",
+  categories: [
+    "Clinical Documentation",
+    "Patient Education",
+    "Care Coordination",
+    "Medical Research",
+    "Health Admin",
+  ],
+  dimensions: [
+    {
+      key: "clinical_task",
+      name: "Task & Audience",
+      question: "Is the deliverable named, and is it clear who reads it?",
+      required: true,
+      guidance: `A health prompt has to say what it produces and who receives it — a clinician, a patient,
+a caregiver, or an administrator. Audience is the highest-leverage element here because it
+silently sets everything downstream: terminology, reading level, how much hedging is
+appropriate, what can be assumed as known. "Explain hypertension" is three different
+documents depending on who asked. Name the artifact too — a SOAP note, a discharge summary,
+a pre-op instruction sheet, a letter to a referring physician.
+Bad example: "Explain type 2 diabetes management."
+Good example: "Write a one-page handout for a newly diagnosed type 2 diabetes patient with
+no medical background: what the diagnosis means, the lifestyle changes with the strongest
+evidence behind them, and when to call the clinic."`,
+    },
+    {
+      key: "safety_boundaries",
+      name: "Safety Boundaries",
+      question: "Does it state what the model must not do, and where to route instead?",
+      required: true,
+      guidance: `Boundaries state what the model must NOT do and what happens at the edge of its
+competence: no diagnosis, no dosing or medication changes, no standing in for the treating
+clinician's judgement. Pair every prohibition with the action that replaces it — where the
+reader goes instead — or the model just refuses unhelpfully. Red-flag handling belongs here
+too: the symptoms that mean stop reading and seek urgent care. A fluent, confident, wrong
+answer is the failure this dimension exists to prevent, and "be careful, this is medical"
+prevents nothing.
+Bad example: "Be accurate and careful since this is health related."
+Good example: "Do not diagnose or recommend specific doses. Describe treatment categories
+in general terms and send the reader to their prescriber for anything specific. If the
+symptoms described include chest pain, one-sided weakness, or trouble breathing, open by
+telling them to seek emergency care now."`,
+    },
+    {
+      key: "evidence_grounding",
+      name: "Evidence & Grounding",
+      question: "Is it clear where facts may come from, and what to do at the limit?",
+      required: true,
+      guidance: `Grounding tells the model which sources it may draw on — only the chart or documents
+supplied, a named guideline or formulary, or clearly-labelled general knowledge — and what
+to do when it runs out: flag the uncertainty, say "not in the record", ask rather than fill
+the gap. Fabricated doses, invented interactions, and confidently misremembered guideline
+thresholds are the concrete harms, and they arrive reading exactly as fluently as the
+correct ones. An ungrounded health prompt is an invitation to produce them.
+Bad example: "Summarize the latest evidence on statin therapy."
+Good example: "Base the summary only on the three trial abstracts below. Where they
+disagree, say so rather than reconciling them. If a question cannot be answered from these
+sources, write 'not addressed in the provided evidence' — do not answer it from general
+knowledge."`,
+    },
+    {
+      key: "phi_handling",
+      name: "Privacy & PHI",
+      question: "Is the handling of patient identifiers specified?",
+      guidance: `Where real patient data is in play, the prompt should say how identifiers are handled:
+that the input is de-identified, that the output must not echo names, dates of birth, or
+record numbers, and what to do if identifiers turn up anyway. CONDITIONAL — a general
+explainer or a literature summary touches no patient data, and its silence here is correct.
+Good example: "The note below is de-identified. Refer to the subject as 'the patient'
+throughout. If any name, date of birth, address, or MRN appears in the input, leave it out
+of your output rather than reproducing it."`,
+    },
+    {
+      key: "clinical_context",
+      name: "Clinical Context",
+      question: "Is the population, setting, and relevant history supplied?",
+      guidance: `Clinical context is the situation the output has to fit: population and age band,
+relevant comorbidities and current medications, the care setting (emergency department,
+primary care, inpatient, telehealth, community pharmacy), and where in the care pathway
+this sits. The same question has different right answers for a paediatric patient and a
+frail 80-year-old on six medications. CONDITIONAL — health education aimed at no particular
+patient needs none of it.
+Good example: "Context: community pharmacy consultation. Patient is 78, taking warfarin and
+metformin, with moderate renal impairment. Flag anything that interacts with those."`,
+    },
+    {
+      key: "clinical_format",
+      name: "Output & Structure",
+      question: "Is the shape of the output — and its reading level — specified?",
+      guidance: `Structure is what makes clinical output usable by whoever receives it: an established
+format where one exists (SOAP, SBAR, problem list, discharge summary), section headings,
+length, and — for anything patient-facing — an explicit reading level. Clinicians and
+patients both parse by shape, so an unstructured wall of prose gets skimmed and misread.
+CONDITIONAL where the deliverable is genuinely a short free-text answer.
+Good example: "Output as SBAR under those four headings. Keep Situation and Background to
+three sentences each. Plain language at roughly an 8th-grade reading level, no
+abbreviations."`,
+    },
+  ],
+};
+
 // ── Agent artifacts ──────────────────────────────────────────────────────────────────────
 //
 // Agent prompts are a different craft from chat prompts: the reader is a model that will act
@@ -924,6 +1044,7 @@ export const FRAMEWORKS: Framework[] = [
   RTF_RISEN,
   CRISPE,
   COT,
+  HEALTHCARE,
   AGENT_SYSTEM,
   AGENT_BRIEF,
   TOOL_DESC,
