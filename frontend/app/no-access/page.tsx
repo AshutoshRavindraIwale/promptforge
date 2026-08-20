@@ -5,6 +5,7 @@
 // Server component: it reads the session server-side to show the exact address they're signed in
 // as, and re-checks the allowlist so a direct hit to /no-access can't strand an allowed user
 // here (proxy.ts already guards this; this is defense in depth).
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAllowed } from "@/lib/allowlist";
 import { createClient } from "@/lib/supabase/server";
@@ -57,6 +58,12 @@ export default async function NoAccess() {
             Request access
           </a>
         )}
+        <Link
+          href="/how-to-use"
+          className="text-[13px] text-ink-2 underline decoration-line underline-offset-4 transition-colors hover:text-ink"
+        >
+          While you wait, see how it works
+        </Link>
         <SignOutButton className="text-[13px] text-ink-3 transition-colors hover:text-ink" />
       </div>
     </main>

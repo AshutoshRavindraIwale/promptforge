@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -151,6 +152,13 @@ function LoginForm() {
           )}
         </div>
       )}
+
+      <p className="mt-10 text-center text-[13px] text-ink-3">
+        New here?{" "}
+        <Link href="/how-to-use" className="text-ink-2 underline decoration-line underline-offset-4 transition-colors hover:text-ink">
+          See how it works
+        </Link>
+      </p>
     </main>
   );
 }
