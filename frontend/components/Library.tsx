@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   allEntries,
   deleteEntry,
@@ -36,6 +36,11 @@ export function Library() {
   const [useEntry, setUseEntry] = useState<LibraryEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Search is debounced, so requests overlap: a slow fetch for an earlier query can resolve
+  // after a faster one for what the user has since typed. Each call takes a ticket, and only
+  // the newest one is allowed to render — otherwise the stale response wins and the list stops
+  // matching the search box until the next keystroke.
+  const latestRequest = useRef(0);
 
   // Which entries have fillable [PLACEHOLDER] fields, computed once per entry list rather than
   // re-scanning every prompt's full text on every render (search typing, opening a row, …).
@@ -50,10 +55,13 @@ export function Library() {
   );
 
   async function refresh(q: string) {
+    const request = ++latestRequest.current;
+    const superseded = () => request !== latestRequest.current;
     setLoading(true);
     setError(null);
     try {
       const rows = q.trim() ? await searchEntries(q) : await allEntries();
+      if (superseded()) return;
       setEntries(rows);
       if (!q.trim()) {
         setCategories(
@@ -63,9 +71,11 @@ export function Library() {
         );
       }
     } catch {
+      if (superseded()) return;
       setError("Could not load your library. Refresh to try again.");
     } finally {
-      setLoading(false);
+      // Leave the spinner up for the request that is still current.
+      if (!superseded()) setLoading(false);
     }
   }
 
