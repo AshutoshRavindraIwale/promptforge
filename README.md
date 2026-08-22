@@ -14,7 +14,7 @@ original and the rewrite side by side on real input.
 
 ![The PromptForge evaluate screen: a framework selector, a prompt input, and the Forge it button](docs/images/evaluate-screen.png)
 
-Seven frameworks ship built in:
+Twelve frameworks ship built in, spanning chat prompts, agent artifacts, and generated media:
 
 | Framework | For |
 |---|---|
@@ -23,8 +23,17 @@ Seven frameworks ship built in:
 | **RTF / RISEN** | Lightweight task-focused prompts |
 | **CRISPE** | Persona-driven prompting |
 | **Chain-of-Thought** | Hard reasoning tasks |
+| **Healthcare** | Clinical and patient-facing prompts — audience, safety boundaries, evidence grounding |
+| **Agent System Prompt** | The standing instructions that define an agent — role, tools, guardrails, stop conditions |
+| **Agent Task Brief** | A kickoff spec an autonomous agent can run with — goal, constraints, done-criteria |
+| **Tool Description** | Docs a model picks the right tool from — trigger conditions, parameters, return contract |
+| **Image Generation** | A generated still image (Midjourney, DALL·E, Stable Diffusion, Flux) |
 | **Cinematic Video** | Single AI-video clips (Sora, Veo, Runway, Kling) |
 | **Video Narrative** | Multi-shot sequences and storyboards |
+
+New to this? The app ships a plain-language walkthrough at **`/how-to-use`** — what a framework
+is, what the grades mean, and the full loop from draft to saved prompt. It needs no account, so
+you can read it before signing in.
 
 ## Example
 
@@ -103,7 +112,7 @@ Full configuration, deployment, and troubleshooting: [`frontend/README.md`](fron
 
 ```
 frontend/               the app — Next.js 16, React 19, Tailwind v4, Supabase
-  lib/frameworks.ts     the seven frameworks; adding one is data-only, no engine changes
+  lib/frameworks.ts     the twelve frameworks; adding one is data-only, no engine changes
   lib/engine.ts         one structured Claude call: score + rewrite
   lib/scoring.ts        deterministic overall grade (required-dimension cap)
   supabase/schema.sql   the database schema — paste into Supabase's SQL editor
