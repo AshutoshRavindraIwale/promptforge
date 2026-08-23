@@ -1,0 +1,50 @@
+name: CI
+
+# Every PR and every push to main. The frontend is the only thing built here; the Python CLI
+# under backend/ is legacy and has its own pytest suite that nothing else depends on.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A new push to the same branch makes the in-flight run obsolete.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: typecheck · lint · test · build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # Errors fail the build; warnings don't. Once the last known warning is cleared this
+      # should tighten to `--max-warnings=0` so new ones can't accumulate unnoticed.
+      - name: Lint
+        run: npx eslint app lib components
+
+      - name: Test
+        run: npm test
+
+      # No secrets needed: every route is dynamic (the nonce CSP forces `force-dynamic`), so
+      # nothing is prerendered and no Supabase or Anthropic client is constructed at build time.
+      # Verified by building with the env file removed — if that ever stops being true, this
+      # step is where it will surface.
+      - name: Build
+        run: npm run build
