@@ -34,10 +34,10 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
-      # Errors fail the build; warnings don't. Once the last known warning is cleared this
-      # should tighten to `--max-warnings=0` so new ones can't accumulate unnoticed.
+      # The repo is at zero warnings, so treat any new one as a failure — warnings that only
+      # print are warnings nobody reads.
       - name: Lint
-        run: npx eslint app lib components
+        run: npx eslint app lib components --max-warnings=0
 
       - name: Test
         run: npm test
