@@ -100,6 +100,11 @@ export function MicButton({ value, onChange, disabled }: Props) {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  // start() awaits getUserMedia before `status` flips to "recording", so the button stays
+  // clickable in between. `starting` latches synchronously so a second click can't open a
+  // second stream; `mounted` covers this component going away while the prompt is still up.
+  const startingRef = useRef(false);
+  const mountedRef = useRef(true);
 
   // Level meter plumbing. Bars are mutated directly rather than through state: this runs on
   // every animation frame, and re-rendering at 60fps to move four divs would be wasteful.
@@ -148,7 +153,11 @@ export function MicButton({ value, onChange, disabled }: Props) {
         !!navigator.mediaDevices?.getUserMedia &&
         pickMimeType() !== undefined,
     );
-    return teardown;
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      teardown();
+    };
   }, [teardown]);
 
   // Drives the bars from the live mic signal, so silence looks different from speech.
@@ -278,59 +287,87 @@ export function MicButton({ value, onChange, disabled }: Props) {
   }
 
   async function start() {
+    // Until getUserMedia resolves, `status` is still "idle" — so the button is enabled and its
+    // handler is still `start`. Without this latch a second click starts a second recording and
+    // overwrites streamRef, leaving the first stream live with nothing able to stop it: the mic
+    // and the browser's recording indicator stay on until the tab closes.
+    if (startingRef.current || recorderRef.current) return;
+    startingRef.current = true;
     setError(null);
+
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
       // Denied permission, or no input device.
+      startingRef.current = false;
       setError("Microphone unavailable. Check your browser permissions.");
       return;
     }
 
-    streamRef.current = stream;
-    const mimeType = pickMimeType();
-    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
-    const chunks: Blob[] = [];
+    // Unmounted while the permission prompt was open — teardown() has already run and never
+    // saw this stream, so release it here rather than orphaning it.
+    if (!mountedRef.current) {
+      stream.getTracks().forEach((track) => track.stop());
+      startingRef.current = false;
+      return;
+    }
 
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunks.push(e.data);
-    };
-    recorder.onstop = () => {
-      teardown();
-      if (chunks.length === 0) {
+    streamRef.current = stream;
+    // MediaRecorder construction and start() both throw on some device/codec combinations.
+    // Catch it here: teardown releases the stream we just took (the old code leaked it), and
+    // the finally clears the latch so a throw can't leave the button permanently dead.
+    try {
+      const mimeType = pickMimeType();
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      const chunks: Blob[] = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+      recorder.onstop = () => {
+        teardown();
+        if (chunks.length === 0) {
+          previewRef.current = "";
+          setStatus("idle");
+          return;
+        }
+        void transcribe(new Blob(chunks, { type: recorder.mimeType }));
+      };
+      recorder.onerror = () => {
+        teardown();
         previewRef.current = "";
         setStatus("idle");
-        return;
-      }
-      void transcribe(new Blob(chunks, { type: recorder.mimeType }));
-    };
-    recorder.onerror = () => {
+        setError("Recording failed. Please try again.");
+      };
+
+      // Anchor the dictation to the draft as it stands now, so both the preview and the final
+      // transcript extend it instead of clobbering it.
+      baseRef.current = valueRef.current.trimEnd();
+      previewRef.current = "";
+
+      recorderRef.current = recorder;
+      recorder.start();
+      setStatus("recording");
+      setElapsed(0);
+
+      startMeter(stream);
+      startPreview();
+
+      const startedAt = performance.now();
+      tickRef.current = setInterval(
+        () => setElapsed(performance.now() - startedAt),
+        500,
+      );
+      timeoutRef.current = setTimeout(stop, MAX_RECORDING_MS);
+    } catch {
       teardown();
       previewRef.current = "";
       setStatus("idle");
       setError("Recording failed. Please try again.");
-    };
-
-    // Anchor the dictation to the draft as it stands now, so both the preview and the final
-    // transcript extend it instead of clobbering it.
-    baseRef.current = valueRef.current.trimEnd();
-    previewRef.current = "";
-
-    recorderRef.current = recorder;
-    recorder.start();
-    setStatus("recording");
-    setElapsed(0);
-
-    startMeter(stream);
-    startPreview();
-
-    const startedAt = performance.now();
-    tickRef.current = setInterval(
-      () => setElapsed(performance.now() - startedAt),
-      500,
-    );
-    timeoutRef.current = setTimeout(stop, MAX_RECORDING_MS);
+    } finally {
+      startingRef.current = false;
+    }
   }
 
   if (!supported) return null;
