@@ -220,7 +220,10 @@ export default function Home() {
         name: payload.name,
         category: payload.category,
         tags: payload.tags,
-        original_prompt: draft,
+        // The text that was actually scored, not whatever is in the textarea now: the editor
+        // stays open alongside the result, so an edit made after forging (without re-forging)
+        // would otherwise be filed against the previous run's scorecard.
+        original_prompt: result.evaluation.prompt_evaluated,
         revised_prompt: result.evaluation.revised_prompt,
         scorecard: result.evaluation.scorecard,
         overall_score: result.overall_score,
