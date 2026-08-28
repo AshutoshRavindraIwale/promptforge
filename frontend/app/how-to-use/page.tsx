@@ -299,6 +299,25 @@ export default function HowToUse() {
         </dl>
       </Section>
 
+      <Section title="Go deeper">
+        <p>
+          The guide above is how to drive the app. If you want the habit behind
+          it — the one that makes a prompt good before PromptForge ever sees it
+          — start here:
+        </p>
+        <Link
+          href="/wiki/output-first-mindset"
+          className={`${card} block transition-colors hover:border-ink-3`}
+        >
+          <span className="text-[15px] font-medium text-ink">
+            Output-first prompting
+          </span>
+          <span className="mt-1 block text-sm text-ink-3">
+            Describe what you want back before you describe the work.
+          </span>
+        </Link>
+      </Section>
+
       <div className="mt-14 flex flex-col items-center gap-4 border-t border-line pt-10">
         <p className="text-center text-[15px] text-ink-2">
           That is everything. The rest you learn by forging one.

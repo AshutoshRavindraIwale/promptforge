@@ -78,9 +78,10 @@ export async function proxy(request: NextRequest) {
   const isAuthCallback = path.startsWith("/auth");
   const isLogin = path.startsWith("/login");
   const isNoAccess = path === "/no-access";
-  // The how-to guide is public on purpose: someone who lands here without an account (or who is
-  // signed in but still waiting on the allowlist) should be able to find out what this is.
-  const isHowTo = path === "/how-to-use";
+  // The guide and the wiki are public on purpose: someone who lands here without an account (or
+  // who is signed in but still waiting on the allowlist) should be able to find out what this is
+  // and read the writing. Prefix-matched, so a new wiki article is public the moment it exists.
+  const isPublicDoc = path === "/how-to-use" || path.startsWith("/wiki");
 
   const redirectTo = (pathname: string) => {
     const url = request.nextUrl.clone();
@@ -90,11 +91,11 @@ export async function proxy(request: NextRequest) {
 
   if (!user) {
     // Signed out: only the auth pages are reachable; everything else goes to /login.
-    if (!isLogin && !isAuthCallback && !isHowTo) return redirectTo("/login");
+    if (!isLogin && !isAuthCallback && !isPublicDoc) return redirectTo("/login");
   } else if (!isAllowed(user.email)) {
     // Signed in but not on the allowlist: park them on /no-access (never the app, never a
     // 403 after a 20s evaluation). /auth stays reachable so an in-flight callback can land.
-    if (!isNoAccess && !isAuthCallback && !isHowTo) return redirectTo("/no-access");
+    if (!isNoAccess && !isAuthCallback && !isPublicDoc) return redirectTo("/no-access");
   } else if (isNoAccess) {
     // Allowed users have no business on the not-approved screen.
     return redirectTo("/");
